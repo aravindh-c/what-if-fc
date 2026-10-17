@@ -1,0 +1,1010 @@
+[
+  {
+    "player_id": "T01-P01",
+    "team_id": "T01",
+    "name": "Umar Jarrell",
+    "shirt_number": 1,
+    "position": "GK",
+    "role": "GK",
+    "ratings": {
+      "passing": 65,
+      "pace": 38,
+      "finishing": 10,
+      "pressing": 25
+    }
+  },
+  {
+    "player_id": "T01-P02",
+    "team_id": "T01",
+    "name": "Xander Moravec",
+    "shirt_number": 13,
+    "position": "GK",
+    "role": "GK",
+    "ratings": {
+      "passing": 54,
+      "pace": 53,
+      "finishing": 13,
+      "pressing": 23
+    }
+  },
+  {
+    "player_id": "T01-P03",
+    "team_id": "T01",
+    "name": "Felix Castellan",
+    "shirt_number": 4,
+    "position": "DF",
+    "role": "CB",
+    "ratings": {
+      "passing": 73,
+      "pace": 54,
+      "finishing": 29,
+      "pressing": 59
+    }
+  },
+  {
+    "player_id": "T01-P04",
+    "team_id": "T01",
+    "name": "Joaquin Castellan",
+    "shirt_number": 5,
+    "position": "DF",
+    "role": "CB",
+    "ratings": {
+      "passing": 61,
+      "pace": 55,
+      "finishing": 29,
+      "pressing": 58
+    }
+  },
+  {
+    "player_id": "T01-P05",
+    "team_id": "T01",
+    "name": "Kofi Moravec",
+    "shirt_number": 15,
+    "position": "DF",
+    "role": "CB",
+    "ratings": {
+      "passing": 72,
+      "pace": 53,
+      "finishing": 29,
+      "pressing": 58
+    }
+  },
+  {
+    "player_id": "T01-P06",
+    "team_id": "T01",
+    "name": "Joaquin Iverson",
+    "shirt_number": 16,
+    "position": "DF",
+    "role": "CB",
+    "ratings": {
+      "passing": 69,
+      "pace": 65,
+      "finishing": 26,
+      "pressing": 60
+    }
+  },
+  {
+    "player_id": "T01-P07",
+    "team_id": "T01",
+    "name": "Kofi Thackeray",
+    "shirt_number": 2,
+    "position": "DF",
+    "role": "FB",
+    "ratings": {
+      "passing": 69,
+      "pace": 69,
+      "finishing": 36,
+      "pressing": 71
+    }
+  },
+  {
+    "player_id": "T01-P08",
+    "team_id": "T01",
+    "name": "Goran Kowalczyk",
+    "shirt_number": 3,
+    "position": "DF",
+    "role": "FB",
+    "ratings": {
+      "passing": 66,
+      "pace": 67,
+      "finishing": 36,
+      "pressing": 75
+    }
+  },
+  {
+    "player_id": "T01-P09",
+    "team_id": "T01",
+    "name": "Ilan Castellan",
+    "shirt_number": 12,
+    "position": "DF",
+    "role": "FB",
+    "ratings": {
+      "passing": 74,
+      "pace": 80,
+      "finishing": 44,
+      "pressing": 71
+    }
+  },
+  {
+    "player_id": "T01-P10",
+    "team_id": "T01",
+    "name": "Tariq Pellerin",
+    "shirt_number": 6,
+    "position": "MF",
+    "role": "DM",
+    "ratings": {
+      "passing": 75,
+      "pace": 61,
+      "finishing": 39,
+      "pressing": 75
+    }
+  },
+  {
+    "player_id": "T01-P11",
+    "team_id": "T01",
+    "name": "Hugo Greaves",
+    "shirt_number": 14,
+    "position": "MF",
+    "role": "DM",
+    "ratings": {
+      "passing": 80,
+      "pace": 68,
+      "finishing": 46,
+      "pressing": 68
+    }
+  },
+  {
+    "player_id": "T01-P12",
+    "team_id": "T01",
+    "name": "Hiro Hartigan",
+    "shirt_number": 8,
+    "position": "MF",
+    "role": "CM",
+    "ratings": {
+      "passing": 87,
+      "pace": 63,
+      "finishing": 57,
+      "pressing": 66
+    }
+  },
+  {
+    "player_id": "T01-P13",
+    "team_id": "T01",
+    "name": "Farid Blackwood",
+    "shirt_number": 18,
+    "position": "MF",
+    "role": "CM",
+    "ratings": {
+      "passing": 75,
+      "pace": 60,
+      "finishing": 57,
+      "pressing": 72
+    }
+  },
+  {
+    "player_id": "T01-P14",
+    "team_id": "T01",
+    "name": "Wren Northcott",
+    "shirt_number": 10,
+    "position": "MF",
+    "role": "AM",
+    "ratings": {
+      "passing": 92,
+      "pace": 76,
+      "finishing": 62,
+      "pressing": 56
+    }
+  },
+  {
+    "player_id": "T01-P15",
+    "team_id": "T01",
+    "name": "Rafael Fairbrook",
+    "shirt_number": 7,
+    "position": "FW",
+    "role": "W",
+    "ratings": {
+      "passing": 72,
+      "pace": 75,
+      "finishing": 67,
+      "pressing": 70
+    }
+  },
+  {
+    "player_id": "T01-P16",
+    "team_id": "T01",
+    "name": "Soren Zelenko",
+    "shirt_number": 11,
+    "position": "FW",
+    "role": "W",
+    "ratings": {
+      "passing": 81,
+      "pace": 74,
+      "finishing": 72,
+      "pressing": 67
+    }
+  },
+  {
+    "player_id": "T01-P17",
+    "team_id": "T01",
+    "name": "Kian Oyelaran",
+    "shirt_number": 9,
+    "position": "FW",
+    "role": "ST",
+    "ratings": {
+      "passing": 65,
+      "pace": 83,
+      "finishing": 73,
+      "pressing": 58
+    }
+  },
+  {
+    "player_id": "T01-P18",
+    "team_id": "T01",
+    "name": "Soren Iverson",
+    "shirt_number": 19,
+    "position": "FW",
+    "role": "ST",
+    "ratings": {
+      "passing": 69,
+      "pace": 80,
+      "finishing": 84,
+      "pressing": 67
+    }
+  },
+  {
+    "player_id": "T02-P01",
+    "team_id": "T02",
+    "name": "Felix Kettering",
+    "shirt_number": 1,
+    "position": "GK",
+    "role": "GK",
+    "ratings": {
+      "passing": 61,
+      "pace": 51,
+      "finishing": 15,
+      "pressing": 32
+    }
+  },
+  {
+    "player_id": "T02-P02",
+    "team_id": "T02",
+    "name": "Bruno Kowalczyk",
+    "shirt_number": 13,
+    "position": "GK",
+    "role": "GK",
+    "ratings": {
+      "passing": 55,
+      "pace": 52,
+      "finishing": 18,
+      "pressing": 40
+    }
+  },
+  {
+    "player_id": "T02-P03",
+    "team_id": "T02",
+    "name": "Oskar Jarrell",
+    "shirt_number": 4,
+    "position": "DF",
+    "role": "CB",
+    "ratings": {
+      "passing": 56,
+      "pace": 59,
+      "finishing": 26,
+      "pressing": 70
+    }
+  },
+  {
+    "player_id": "T02-P04",
+    "team_id": "T02",
+    "name": "Oskar Ashgrove",
+    "shirt_number": 5,
+    "position": "DF",
+    "role": "CB",
+    "ratings": {
+      "passing": 69,
+      "pace": 59,
+      "finishing": 30,
+      "pressing": 72
+    }
+  },
+  {
+    "player_id": "T02-P05",
+    "team_id": "T02",
+    "name": "Arlo Jarrell",
+    "shirt_number": 15,
+    "position": "DF",
+    "role": "CB",
+    "ratings": {
+      "passing": 67,
+      "pace": 65,
+      "finishing": 32,
+      "pressing": 67
+    }
+  },
+  {
+    "player_id": "T02-P06",
+    "team_id": "T02",
+    "name": "Gael Oyelaran",
+    "shirt_number": 16,
+    "position": "DF",
+    "role": "CB",
+    "ratings": {
+      "passing": 55,
+      "pace": 68,
+      "finishing": 34,
+      "pressing": 75
+    }
+  },
+  {
+    "player_id": "T02-P07",
+    "team_id": "T02",
+    "name": "Zane Abernathy",
+    "shirt_number": 2,
+    "position": "DF",
+    "role": "FB",
+    "ratings": {
+      "passing": 61,
+      "pace": 83,
+      "finishing": 42,
+      "pressing": 67
+    }
+  },
+  {
+    "player_id": "T02-P08",
+    "team_id": "T02",
+    "name": "Mateo Elsworth",
+    "shirt_number": 3,
+    "position": "DF",
+    "role": "FB",
+    "ratings": {
+      "passing": 64,
+      "pace": 82,
+      "finishing": 35,
+      "pressing": 69
+    }
+  },
+  {
+    "player_id": "T02-P09",
+    "team_id": "T02",
+    "name": "Viktor Northcott",
+    "shirt_number": 12,
+    "position": "DF",
+    "role": "FB",
+    "ratings": {
+      "passing": 59,
+      "pace": 71,
+      "finishing": 30,
+      "pressing": 70
+    }
+  },
+  {
+    "player_id": "T02-P10",
+    "team_id": "T02",
+    "name": "Ilan Garrow",
+    "shirt_number": 6,
+    "position": "MF",
+    "role": "DM",
+    "ratings": {
+      "passing": 75,
+      "pace": 56,
+      "finishing": 39,
+      "pressing": 78
+    }
+  },
+  {
+    "player_id": "T02-P11",
+    "team_id": "T02",
+    "name": "Noel Zelenko",
+    "shirt_number": 14,
+    "position": "MF",
+    "role": "DM",
+    "ratings": {
+      "passing": 68,
+      "pace": 64,
+      "finishing": 48,
+      "pressing": 83
+    }
+  },
+  {
+    "player_id": "T02-P12",
+    "team_id": "T02",
+    "name": "Elio Holloway",
+    "shirt_number": 8,
+    "position": "MF",
+    "role": "CM",
+    "ratings": {
+      "passing": 71,
+      "pace": 75,
+      "finishing": 61,
+      "pressing": 83
+    }
+  },
+  {
+    "player_id": "T02-P13",
+    "team_id": "T02",
+    "name": "Elio Thackeray",
+    "shirt_number": 18,
+    "position": "MF",
+    "role": "CM",
+    "ratings": {
+      "passing": 70,
+      "pace": 64,
+      "finishing": 50,
+      "pressing": 78
+    }
+  },
+  {
+    "player_id": "T02-P14",
+    "team_id": "T02",
+    "name": "Quinn Fairbrook",
+    "shirt_number": 10,
+    "position": "MF",
+    "role": "AM",
+    "ratings": {
+      "passing": 77,
+      "pace": 80,
+      "finishing": 60,
+      "pressing": 66
+    }
+  },
+  {
+    "player_id": "T02-P15",
+    "team_id": "T02",
+    "name": "Hugo Yarrow",
+    "shirt_number": 7,
+    "position": "FW",
+    "role": "W",
+    "ratings": {
+      "passing": 68,
+      "pace": 76,
+      "finishing": 74,
+      "pressing": 71
+    }
+  },
+  {
+    "player_id": "T02-P16",
+    "team_id": "T02",
+    "name": "Felix Quarles",
+    "shirt_number": 11,
+    "position": "FW",
+    "role": "W",
+    "ratings": {
+      "passing": 80,
+      "pace": 87,
+      "finishing": 63,
+      "pressing": 73
+    }
+  },
+  {
+    "player_id": "T02-P17",
+    "team_id": "T02",
+    "name": "Oskar Juniper",
+    "shirt_number": 9,
+    "position": "FW",
+    "role": "ST",
+    "ratings": {
+      "passing": 72,
+      "pace": 80,
+      "finishing": 79,
+      "pressing": 64
+    }
+  },
+  {
+    "player_id": "T02-P18",
+    "team_id": "T02",
+    "name": "Pavel Abernathy",
+    "shirt_number": 19,
+    "position": "FW",
+    "role": "ST",
+    "ratings": {
+      "passing": 63,
+      "pace": 76,
+      "finishing": 88,
+      "pressing": 73
+    }
+  },
+  {
+    "player_id": "T03-P01",
+    "team_id": "T03",
+    "name": "Wren Brannick",
+    "shirt_number": 1,
+    "position": "GK",
+    "role": "GK",
+    "ratings": {
+      "passing": 47,
+      "pace": 49,
+      "finishing": 25,
+      "pressing": 30
+    }
+  },
+  {
+    "player_id": "T03-P02",
+    "team_id": "T03",
+    "name": "Mateo Northcott",
+    "shirt_number": 13,
+    "position": "GK",
+    "role": "GK",
+    "ratings": {
+      "passing": 58,
+      "pace": 55,
+      "finishing": 21,
+      "pressing": 33
+    }
+  },
+  {
+    "player_id": "T03-P03",
+    "team_id": "T03",
+    "name": "Felix Okonkwo-Hale",
+    "shirt_number": 4,
+    "position": "DF",
+    "role": "CB",
+    "ratings": {
+      "passing": 57,
+      "pace": 63,
+      "finishing": 40,
+      "pressing": 63
+    }
+  },
+  {
+    "player_id": "T03-P04",
+    "team_id": "T03",
+    "name": "Viktor Nkemelu",
+    "shirt_number": 5,
+    "position": "DF",
+    "role": "CB",
+    "ratings": {
+      "passing": 69,
+      "pace": 56,
+      "finishing": 40,
+      "pressing": 68
+    }
+  },
+  {
+    "player_id": "T03-P05",
+    "team_id": "T03",
+    "name": "Felix Sandoval",
+    "shirt_number": 15,
+    "position": "DF",
+    "role": "CB",
+    "ratings": {
+      "passing": 57,
+      "pace": 68,
+      "finishing": 31,
+      "pressing": 72
+    }
+  },
+  {
+    "player_id": "T03-P06",
+    "team_id": "T03",
+    "name": "Luca Castellan",
+    "shirt_number": 16,
+    "position": "DF",
+    "role": "CB",
+    "ratings": {
+      "passing": 64,
+      "pace": 58,
+      "finishing": 37,
+      "pressing": 71
+    }
+  },
+  {
+    "player_id": "T03-P07",
+    "team_id": "T03",
+    "name": "Zane Falkner",
+    "shirt_number": 2,
+    "position": "DF",
+    "role": "FB",
+    "ratings": {
+      "passing": 63,
+      "pace": 75,
+      "finishing": 37,
+      "pressing": 60
+    }
+  },
+  {
+    "player_id": "T03-P08",
+    "team_id": "T03",
+    "name": "Jonas Moravec",
+    "shirt_number": 3,
+    "position": "DF",
+    "role": "FB",
+    "ratings": {
+      "passing": 72,
+      "pace": 74,
+      "finishing": 48,
+      "pressing": 71
+    }
+  },
+  {
+    "player_id": "T03-P09",
+    "team_id": "T03",
+    "name": "Jonas Kowalczyk",
+    "shirt_number": 12,
+    "position": "DF",
+    "role": "FB",
+    "ratings": {
+      "passing": 62,
+      "pace": 70,
+      "finishing": 33,
+      "pressing": 63
+    }
+  },
+  {
+    "player_id": "T03-P10",
+    "team_id": "T03",
+    "name": "Hugo Iverson",
+    "shirt_number": 6,
+    "position": "MF",
+    "role": "DM",
+    "ratings": {
+      "passing": 77,
+      "pace": 64,
+      "finishing": 46,
+      "pressing": 66
+    }
+  },
+  {
+    "player_id": "T03-P11",
+    "team_id": "T03",
+    "name": "Quinn Nkemelu",
+    "shirt_number": 14,
+    "position": "MF",
+    "role": "DM",
+    "ratings": {
+      "passing": 73,
+      "pace": 74,
+      "finishing": 47,
+      "pressing": 76
+    }
+  },
+  {
+    "player_id": "T03-P12",
+    "team_id": "T03",
+    "name": "Quinn Juniper",
+    "shirt_number": 8,
+    "position": "MF",
+    "role": "CM",
+    "ratings": {
+      "passing": 81,
+      "pace": 66,
+      "finishing": 51,
+      "pressing": 73
+    }
+  },
+  {
+    "player_id": "T03-P13",
+    "team_id": "T03",
+    "name": "Dmitri Sandoval",
+    "shirt_number": 18,
+    "position": "MF",
+    "role": "CM",
+    "ratings": {
+      "passing": 84,
+      "pace": 75,
+      "finishing": 66,
+      "pressing": 66
+    }
+  },
+  {
+    "player_id": "T03-P14",
+    "team_id": "T03",
+    "name": "Ilan Jarrell",
+    "shirt_number": 10,
+    "position": "MF",
+    "role": "AM",
+    "ratings": {
+      "passing": 88,
+      "pace": 82,
+      "finishing": 63,
+      "pressing": 68
+    }
+  },
+  {
+    "player_id": "T03-P15",
+    "team_id": "T03",
+    "name": "Luca Northcott",
+    "shirt_number": 7,
+    "position": "FW",
+    "role": "W",
+    "ratings": {
+      "passing": 64,
+      "pace": 82,
+      "finishing": 66,
+      "pressing": 60
+    }
+  },
+  {
+    "player_id": "T03-P16",
+    "team_id": "T03",
+    "name": "Elio Oyelaran",
+    "shirt_number": 11,
+    "position": "FW",
+    "role": "W",
+    "ratings": {
+      "passing": 67,
+      "pace": 79,
+      "finishing": 71,
+      "pressing": 72
+    }
+  },
+  {
+    "player_id": "T03-P17",
+    "team_id": "T03",
+    "name": "Hugo Kowalczyk",
+    "shirt_number": 9,
+    "position": "FW",
+    "role": "ST",
+    "ratings": {
+      "passing": 71,
+      "pace": 75,
+      "finishing": 76,
+      "pressing": 59
+    }
+  },
+  {
+    "player_id": "T03-P18",
+    "team_id": "T03",
+    "name": "Mateo Rosswell",
+    "shirt_number": 19,
+    "position": "FW",
+    "role": "ST",
+    "ratings": {
+      "passing": 57,
+      "pace": 75,
+      "finishing": 91,
+      "pressing": 66
+    }
+  },
+  {
+    "player_id": "T04-P01",
+    "team_id": "T04",
+    "name": "Joaquin Brannick",
+    "shirt_number": 1,
+    "position": "GK",
+    "role": "GK",
+    "ratings": {
+      "passing": 49,
+      "pace": 53,
+      "finishing": 17,
+      "pressing": 44
+    }
+  },
+  {
+    "player_id": "T04-P02",
+    "team_id": "T04",
+    "name": "Marek Hartigan",
+    "shirt_number": 13,
+    "position": "GK",
+    "role": "GK",
+    "ratings": {
+      "passing": 53,
+      "pace": 47,
+      "finishing": 21,
+      "pressing": 44
+    }
+  },
+  {
+    "player_id": "T04-P03",
+    "team_id": "T04",
+    "name": "Ilan Fairbrook",
+    "shirt_number": 4,
+    "position": "DF",
+    "role": "CB",
+    "ratings": {
+      "passing": 70,
+      "pace": 61,
+      "finishing": 38,
+      "pressing": 71
+    }
+  },
+  {
+    "player_id": "T04-P04",
+    "team_id": "T04",
+    "name": "Joaquin Marchetti",
+    "shirt_number": 5,
+    "position": "DF",
+    "role": "CB",
+    "ratings": {
+      "passing": 68,
+      "pace": 58,
+      "finishing": 35,
+      "pressing": 66
+    }
+  },
+  {
+    "player_id": "T04-P05",
+    "team_id": "T04",
+    "name": "Zane Dorsey",
+    "shirt_number": 15,
+    "position": "DF",
+    "role": "CB",
+    "ratings": {
+      "passing": 64,
+      "pace": 56,
+      "finishing": 29,
+      "pressing": 76
+    }
+  },
+  {
+    "player_id": "T04-P06",
+    "team_id": "T04",
+    "name": "Emeka Nkemelu",
+    "shirt_number": 16,
+    "position": "DF",
+    "role": "CB",
+    "ratings": {
+      "passing": 63,
+      "pace": 57,
+      "finishing": 26,
+      "pressing": 74
+    }
+  },
+  {
+    "player_id": "T04-P07",
+    "team_id": "T04",
+    "name": "Jonas Quarles",
+    "shirt_number": 2,
+    "position": "DF",
+    "role": "FB",
+    "ratings": {
+      "passing": 62,
+      "pace": 82,
+      "finishing": 37,
+      "pressing": 69
+    }
+  },
+  {
+    "player_id": "T04-P08",
+    "team_id": "T04",
+    "name": "Zane Greaves",
+    "shirt_number": 3,
+    "position": "DF",
+    "role": "FB",
+    "ratings": {
+      "passing": 63,
+      "pace": 75,
+      "finishing": 35,
+      "pressing": 79
+    }
+  },
+  {
+    "player_id": "T04-P09",
+    "team_id": "T04",
+    "name": "Gael Abernathy",
+    "shirt_number": 12,
+    "position": "DF",
+    "role": "FB",
+    "ratings": {
+      "passing": 68,
+      "pace": 81,
+      "finishing": 36,
+      "pressing": 77
+    }
+  },
+  {
+    "player_id": "T04-P10",
+    "team_id": "T04",
+    "name": "Umar Falkner",
+    "shirt_number": 6,
+    "position": "MF",
+    "role": "DM",
+    "ratings": {
+      "passing": 75,
+      "pace": 56,
+      "finishing": 47,
+      "pressing": 86
+    }
+  },
+  {
+    "player_id": "T04-P11",
+    "team_id": "T04",
+    "name": "Cyril Brannick",
+    "shirt_number": 14,
+    "position": "MF",
+    "role": "DM",
+    "ratings": {
+      "passing": 76,
+      "pace": 66,
+      "finishing": 53,
+      "pressing": 81
+    }
+  },
+  {
+    "player_id": "T04-P12",
+    "team_id": "T04",
+    "name": "Gael Elsworth",
+    "shirt_number": 8,
+    "position": "MF",
+    "role": "CM",
+    "ratings": {
+      "passing": 71,
+      "pace": 67,
+      "finishing": 50,
+      "pressing": 70
+    }
+  },
+  {
+    "player_id": "T04-P13",
+    "team_id": "T04",
+    "name": "Quinn Rosswell",
+    "shirt_number": 18,
+    "position": "MF",
+    "role": "CM",
+    "ratings": {
+      "passing": 69,
+      "pace": 65,
+      "finishing": 55,
+      "pressing": 72
+    }
+  },
+  {
+    "player_id": "T04-P14",
+    "team_id": "T04",
+    "name": "Bruno Quarles",
+    "shirt_number": 10,
+    "position": "MF",
+    "role": "AM",
+    "ratings": {
+      "passing": 84,
+      "pace": 68,
+      "finishing": 76,
+      "pressing": 75
+    }
+  },
+  {
+    "player_id": "T04-P15",
+    "team_id": "T04",
+    "name": "Rafael Dunmore",
+    "shirt_number": 7,
+    "position": "FW",
+    "role": "W",
+    "ratings": {
+      "passing": 69,
+      "pace": 89,
+      "finishing": 60,
+      "pressing": 70
+    }
+  },
+  {
+    "player_id": "T04-P16",
+    "team_id": "T04",
+    "name": "Bastian Penhallow",
+    "shirt_number": 11,
+    "position": "FW",
+    "role": "W",
+    "ratings": {
+      "passing": 66,
+      "pace": 84,
+      "finishing": 60,
+      "pressing": 69
+    }
+  },
+  {
+    "player_id": "T04-P17",
+    "team_id": "T04",
+    "name": "Emeka Quarles",
+    "shirt_number": 9,
+    "position": "FW",
+    "role": "ST",
+    "ratings": {
+      "passing": 59,
+      "pace": 84,
+      "finishing": 72,
+      "pressing": 68
+    }
+  },
+  {
+    "player_id": "T04-P18",
+    "team_id": "T04",
+    "name": "Joaquin Blackwood",
+    "shirt_number": 19,
+    "position": "FW",
+    "role": "ST",
+    "ratings": {
+      "passing": 64,
+      "pace": 74,
+      "finishing": 73,
+      "pressing": 74
+    }
+  }
+]

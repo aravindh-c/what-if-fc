@@ -1,0 +1,77 @@
+{
+  "overlay_id": "ov_0001",
+  "match_id": "m_0001",
+  "match_clock_s": 4275,
+  "display_duration_s": 8,
+  "moment_type": "ghost_pass",
+  "calculation_version": "twin-v1",
+  "validation_status": "passed",
+  "narrative_source": "template",
+  "visual": {
+    "actual": {
+      "from": [
+        40.0,
+        34.0
+      ],
+      "to": [
+        50.0,
+        44.0
+      ],
+      "receiver_id": "T01-P13"
+    },
+    "ghost": {
+      "from": [
+        40.0,
+        34.0
+      ],
+      "to": [
+        68.0,
+        58.0
+      ],
+      "receiver_id": "T01-P16"
+    },
+    "highlight_defenders": [
+      "T02-P07",
+      "T02-P08"
+    ]
+  },
+  "scores": {
+    "actual": 0.41,
+    "ghost": 0.63,
+    "components_actual": {
+      "T": 0.4,
+      "P": 0.3,
+      "F": 0.9,
+      "R": 0.3
+    },
+    "components_ghost": {
+      "T": 0.7,
+      "P": 0.6,
+      "F": 0.8,
+      "R": 0.2
+    }
+  },
+  "evidence": {
+    "event_ids": [
+      "ev_9012"
+    ],
+    "metrics": {
+      "pressure_level": 0.62
+    }
+  },
+  "text": {
+    "analyst": {
+      "en": {
+        "headline": "Switch was on",
+        "body": "Option score 0.63 vs 0.41 for the pass played: more progress, open lane."
+      }
+    },
+    "fan": {
+      "en": {
+        "headline": "The ball out wide was free!",
+        "body": "A pass to the right wing would have opened the game up."
+      }
+    },
+    "cue": "Watch the space on the right touchline."
+  }
+}

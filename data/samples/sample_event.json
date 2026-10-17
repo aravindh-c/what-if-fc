@@ -1,0 +1,21 @@
+{
+  "event_id": "ev_9012",
+  "match_id": "m_0001",
+  "scenario_id": "sample",
+  "seed": 7,
+  "event_time": "2026-10-19T10:00:00Z",
+  "match_clock_s": 4275,
+  "period": 2,
+  "event_type": "pass",
+  "team_id": "T01",
+  "player_id": "T01-P10",
+  "possession_id": 118,
+  "x": 40.0,
+  "y": 34.0,
+  "end_x": 50.0,
+  "end_y": 44.0,
+  "outcome": "complete",
+  "receiver_id": "T01-P13",
+  "pressure_level": 0.62,
+  "snapshot_id": "s_0001"
+}

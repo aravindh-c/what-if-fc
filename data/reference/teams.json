@@ -1,0 +1,38 @@
+[
+  {
+    "team_id": "T01",
+    "name": "Kestrel Vale FC",
+    "short_name": "KVF",
+    "primary_color": "#1F6F5B",
+    "secondary_color": "#F2C14E",
+    "formation": "4-3-3",
+    "style": "possession"
+  },
+  {
+    "team_id": "T02",
+    "name": "Thornfield Rovers",
+    "short_name": "THR",
+    "primary_color": "#8C1C13",
+    "secondary_color": "#F4F1DE",
+    "formation": "4-2-3-1",
+    "style": "high_press"
+  },
+  {
+    "team_id": "T03",
+    "name": "Saltmere Mariners",
+    "short_name": "SMM",
+    "primary_color": "#1D3557",
+    "secondary_color": "#A8DADC",
+    "formation": "3-5-2",
+    "style": "direct"
+  },
+  {
+    "team_id": "T04",
+    "name": "Copperhill Athletic",
+    "short_name": "CPA",
+    "primary_color": "#B5651D",
+    "secondary_color": "#2B2D42",
+    "formation": "4-3-3",
+    "style": "high_press"
+  }
+]

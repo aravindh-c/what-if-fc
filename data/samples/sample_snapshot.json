@@ -1,0 +1,161 @@
+{
+  "snapshot_id": "s_0001",
+  "match_id": "m_0001",
+  "match_clock_s": 4275,
+  "positions": [
+    {
+      "player_id": "T01-P01",
+      "team_id": "T01",
+      "role": "GK",
+      "x": 5.0,
+      "y": 34.0
+    },
+    {
+      "player_id": "T01-P03",
+      "team_id": "T01",
+      "role": "CB",
+      "x": 25.0,
+      "y": 26.0
+    },
+    {
+      "player_id": "T01-P04",
+      "team_id": "T01",
+      "role": "CB",
+      "x": 25.0,
+      "y": 42.0
+    },
+    {
+      "player_id": "T01-P07",
+      "team_id": "T01",
+      "role": "FB",
+      "x": 30.0,
+      "y": 10.0
+    },
+    {
+      "player_id": "T01-P08",
+      "team_id": "T01",
+      "role": "FB",
+      "x": 30.0,
+      "y": 58.0
+    },
+    {
+      "player_id": "T01-P10",
+      "team_id": "T01",
+      "role": "DM",
+      "x": 40.0,
+      "y": 34.0
+    },
+    {
+      "player_id": "T01-P12",
+      "team_id": "T01",
+      "role": "CM",
+      "x": 50.0,
+      "y": 24.0
+    },
+    {
+      "player_id": "T01-P13",
+      "team_id": "T01",
+      "role": "CM",
+      "x": 50.0,
+      "y": 44.0
+    },
+    {
+      "player_id": "T01-P15",
+      "team_id": "T01",
+      "role": "W",
+      "x": 68.0,
+      "y": 10.0
+    },
+    {
+      "player_id": "T01-P16",
+      "team_id": "T01",
+      "role": "W",
+      "x": 68.0,
+      "y": 58.0
+    },
+    {
+      "player_id": "T01-P17",
+      "team_id": "T01",
+      "role": "ST",
+      "x": 75.0,
+      "y": 34.0
+    },
+    {
+      "player_id": "T02-P01",
+      "team_id": "T02",
+      "role": "GK",
+      "x": 100.0,
+      "y": 34.0
+    },
+    {
+      "player_id": "T02-P03",
+      "team_id": "T02",
+      "role": "CB",
+      "x": 80.0,
+      "y": 42.0
+    },
+    {
+      "player_id": "T02-P04",
+      "team_id": "T02",
+      "role": "CB",
+      "x": 80.0,
+      "y": 26.0
+    },
+    {
+      "player_id": "T02-P07",
+      "team_id": "T02",
+      "role": "FB",
+      "x": 75.0,
+      "y": 58.0
+    },
+    {
+      "player_id": "T02-P08",
+      "team_id": "T02",
+      "role": "FB",
+      "x": 75.0,
+      "y": 10.0
+    },
+    {
+      "player_id": "T02-P10",
+      "team_id": "T02",
+      "role": "DM",
+      "x": 63.0,
+      "y": 41.0
+    },
+    {
+      "player_id": "T02-P11",
+      "team_id": "T02",
+      "role": "DM",
+      "x": 63.0,
+      "y": 27.0
+    },
+    {
+      "player_id": "T02-P14",
+      "team_id": "T02",
+      "role": "AM",
+      "x": 45.0,
+      "y": 34.0
+    },
+    {
+      "player_id": "T02-P15",
+      "team_id": "T02",
+      "role": "W",
+      "x": 40.0,
+      "y": 56.0
+    },
+    {
+      "player_id": "T02-P16",
+      "team_id": "T02",
+      "role": "W",
+      "x": 40.0,
+      "y": 12.0
+    },
+    {
+      "player_id": "T02-P17",
+      "team_id": "T02",
+      "role": "ST",
+      "x": 30.0,
+      "y": 34.0
+    }
+  ]
+}

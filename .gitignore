@@ -1,0 +1,32 @@
+# Secrets: never commit real keys or connection strings
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+build/
+dist/
+
+# Node / frontend
+node_modules/
+web/dist/
+web/.vite/
+
+# Generated match data (keep small samples only)
+data/generated/
+data/replay/*.jsonl
+!data/replay/.gitkeep
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
