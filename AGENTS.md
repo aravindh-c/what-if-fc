@@ -1,4 +1,4 @@
-# AGENTS.md – brief for AI coding assistants (Cursor, Copilot, Claude)
+# AGENTS.md – brief for AI coding assistants
 
 Read this file and `docs/requirements.md` before changing code. When they disagree, `docs/requirements.md` wins; flag the conflict instead of guessing.
 
