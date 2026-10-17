@@ -45,6 +45,8 @@ python -m simulator.samples          # writes data/samples/*.json
 ruff check . && pytest -q            # lint + tests
 ```
 
+**Commit hook:** run `git config core.hooksPath .githooks` once after cloning.
+
 Copy `.env.example` to `.env` when you reach the Azure steps; never commit `.env`.
 
 ## Repository layout

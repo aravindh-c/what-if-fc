@@ -1,0 +1,22 @@
+#!/bin/sh
+# Strip AI attribution lines from commit messages.
+msg="$1"
+
+# Delete Co-Authored-By lines mentioning any AI tool (explicit case fold)
+sed -i '/^[Cc][Oo]-[Aa][Uu][Tt][Hh][Oo][Rr][Ee][Dd]-[Bb][Yy]:.*[Cc][Ll][Aa][Uu][Dd][Ee]/d' "$msg"
+sed -i '/^[Cc][Oo]-[Aa][Uu][Tt][Hh][Oo][Rr][Ee][Dd]-[Bb][Yy]:.*[Aa][Nn][Tt][Hh][Rr][Oo][Pp][Ii][Cc]/d' "$msg"
+sed -i '/^[Cc][Oo]-[Aa][Uu][Tt][Hh][Oo][Rr][Ee][Dd]-[Bb][Yy]:.*[Cc][Uu][Rr][Ss][Oo][Rr]/d' "$msg"
+sed -i '/^[Cc][Oo]-[Aa][Uu][Tt][Hh][Oo][Rr][Ee][Dd]-[Bb][Yy]:.*[Cc][Oo][Pp][Ii][Ll][Oo][Tt]/d' "$msg"
+sed -i '/^[Cc][Oo]-[Aa][Uu][Tt][Hh][Oo][Rr][Ee][Dd]-[Bb][Yy]:.*[Oo][Pp][Ee][Nn][Aa][Ii]/d' "$msg"
+sed -i '/^[Cc][Oo]-[Aa][Uu][Tt][Hh][Oo][Rr][Ee][Dd]-[Bb][Yy]:.*[Gg][Pp][Tt]/d' "$msg"
+
+# Delete Claude-Session: trailers
+sed -i '/^[Cc][Ll][Aa][Uu][Dd][Ee]-[Ss][Ee][Ss][Ss][Ii][Oo][Nn]:/d' "$msg"
+
+# Delete Generated-with lines
+sed -i '/[Gg][Ee][Nn][Ee][Rr][Aa][Tt][Ee][Dd] [Ww][Ii][Tt][Hh].*[Cc][Ll][Aa][Uu][Dd][Ee]/d' "$msg"
+sed -i '/[Gg][Ee][Nn][Ee][Rr][Aa][Tt][Ee][Dd] [Ww][Ii][Tt][Hh].*[Cc][Uu][Rr][Ss][Oo][Rr]/d' "$msg"
+sed -i '/[Gg][Ee][Nn][Ee][Rr][Aa][Tt][Ee][Dd] [Ww][Ii][Tt][Hh].*[Cc][Oo][Pp][Ii][Ll][Oo][Tt]/d' "$msg"
+
+# Remove trailing blank lines (GNU sed -z treats whole file as one record)
+sed -i -Ez 's/\n+$/\n/' "$msg"
