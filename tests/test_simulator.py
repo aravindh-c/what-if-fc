@@ -1,10 +1,13 @@
 """Simulator acceptance tests.
 
 AT-01: Deterministic simulator – same seed -> identical events and snapshots.
-Plus: schema validity, data-quality rules, and per-seed stats in target ranges.
+Plus: schema validity, data-quality rules, snapshot/pass consistency, and
+per-seed stats in target ranges.
 """
 
 from __future__ import annotations
+
+import math
 
 import pytest
 
@@ -125,6 +128,99 @@ def test_snapshots_have_22_players(match_seed7: tuple) -> None:
     _, snapshots = match_seed7
     for sn in snapshots:
         assert len(sn.positions) == 22
+
+
+# ---------------------------------------------------------------------------
+# Snapshot / pass consistency (seeds 1-5)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("seed", [1, 2, 3, 4, 5])
+def test_passer_in_snapshot_at_ball(seed: int) -> None:
+    """Passer's position in snapshot must be within 0.5 m of the pass start coords."""
+    events, snapshots = _run(seed)
+    snap_by_id = {s.snapshot_id: s for s in snapshots}
+    passes = [
+        e for e in events
+        if e.event_type == EventType.PASS and e.snapshot_id is not None
+    ]
+    assert passes, f"seed {seed}: no snapshotted passes"
+    for ev in passes:
+        snap = snap_by_id[ev.snapshot_id]
+        passer_pos = next(
+            p for p in snap.positions if p.player_id == ev.player_id
+        )
+        dist = math.hypot(passer_pos.x - ev.x, passer_pos.y - ev.y)
+        assert dist < 0.5, (
+            f"seed {seed} event {ev.event_id}: passer {dist:.3f} m from pass start"
+        )
+
+
+@pytest.mark.parametrize("seed", [1, 2, 3, 4, 5])
+def test_receiver_in_snapshot_at_pass_end(seed: int) -> None:
+    """For complete passes with a snapshot, receiver must be within 0.5 m of end."""
+    events, snapshots = _run(seed)
+    snap_by_id = {s.snapshot_id: s for s in snapshots}
+    complete_snapped = [
+        e for e in events
+        if e.event_type == EventType.PASS
+        and e.outcome == Outcome.COMPLETE
+        and e.snapshot_id is not None
+    ]
+    assert complete_snapped, f"seed {seed}: no complete snapshotted passes"
+    for ev in complete_snapped:
+        snap = snap_by_id[ev.snapshot_id]
+        rec_pos = next(
+            p for p in snap.positions if p.player_id == ev.receiver_id
+        )
+        dist = math.hypot(rec_pos.x - ev.end_x, rec_pos.y - ev.end_y)
+        assert dist < 0.5, (
+            f"seed {seed} event {ev.event_id}: receiver {dist:.3f} m from pass end"
+        )
+
+
+@pytest.mark.parametrize("seed", [1, 2, 3, 4, 5])
+def test_mean_pass_end_y_centred(seed: int) -> None:
+    """Mean pass end_y must be within 34 ± 3 (play is not piled on the touchlines)."""
+    events, _ = _run(seed)
+    end_ys = [e.end_y for e in events if e.event_type == EventType.PASS and e.end_y is not None]
+    assert end_ys, f"seed {seed}: no passes"
+    mean_y = sum(end_ys) / len(end_ys)
+    assert 31.0 <= mean_y <= 37.0, (
+        f"seed {seed}: mean pass end_y {mean_y:.2f} outside 34 ± 3"
+    )
+
+
+@pytest.mark.parametrize("seed", [1, 2, 3, 4, 5])
+def test_few_passes_near_touchline(seed: int) -> None:
+    """Fewer than 15 % of passes should end within 5 m of a touchline."""
+    events, _ = _run(seed)
+    passes = [e for e in events if e.event_type == EventType.PASS and e.end_y is not None]
+    assert passes, f"seed {seed}: no passes"
+    near_line = sum(1 for e in passes if e.end_y < 5.0 or e.end_y > 63.0)
+    frac = near_line / len(passes)
+    assert frac < 0.15, (
+        f"seed {seed}: {frac:.1%} of passes end near a touchline (limit 15 %)"
+    )
+
+
+@pytest.mark.parametrize("seed", [1, 2, 3, 4, 5])
+def test_goal_followed_by_kickoff_of_other_team(seed: int) -> None:
+    """Every GOAL event must be immediately followed by a KICKOFF of the other team."""
+    events, _ = _run(seed)
+    goals = [(i, e) for i, e in enumerate(events) if e.event_type == EventType.GOAL]
+    if not goals:
+        pytest.skip(f"seed {seed}: no goals in this match")
+    for idx, goal_ev in goals:
+        # Find next event after the goal
+        rest = [e for e in events[idx + 1:] if e.event_type != EventType.PERIOD_END]
+        assert rest, f"seed {seed}: no event after goal {goal_ev.event_id}"
+        nxt = rest[0]
+        assert nxt.event_type == EventType.KICKOFF, (
+            f"seed {seed}: after goal {goal_ev.event_id} expected KICKOFF, got {nxt.event_type}"
+        )
+        assert nxt.team_id != goal_ev.team_id, (
+            f"seed {seed}: kickoff after goal is by the scoring team, expected conceding team"
+        )
 
 
 # ---------------------------------------------------------------------------
