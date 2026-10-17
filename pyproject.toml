@@ -12,6 +12,9 @@ license = { text = "MIT" }
 dependencies = [
     "pydantic>=2.7",
     "numpy>=1.26",
+    "agent-framework-foundry",
+    "azure-identity>=1.17",
+    "python-dotenv>=1.0",
 ]
 
 [project.optional-dependencies]
