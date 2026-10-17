@@ -87,7 +87,7 @@ def _cy(v: float) -> float:
 
 def _pass_p(passing: int, length_m: float, pressure: float, style: TeamStyle) -> float:
     """Pass-completion probability, tuned to hit 78–88 % completion target."""
-    base  = 0.84 + (passing / 99) * 0.12           # 0.84–0.96
+    base  = 0.87 + (passing / 99) * 0.09           # 0.87–0.96
     lp    = max(0.0, (length_m - 15.0) / 130.0)    # gentle length penalty
     pp    = pressure * 0.18
     bonus = 0.03 if style == TeamStyle.POSSESSION else 0.0
@@ -153,14 +153,23 @@ def _interception_point(
 
 
 def _shot_result(finishing: int, dist_m: float, rng: random.Random) -> tuple[bool, Outcome]:
-    """Return (is_goal, Outcome) for a shot."""
-    p_on = max(0.30, 0.78 - dist_m / 65.0)
-    if rng.random() >= p_on:
-        return False, Outcome.OFF_TARGET
-    p_goal = max(0.08, (finishing / 99) * 0.55 * max(0.0, 1.0 - dist_m / 38.0))
-    if rng.random() < p_goal:
+    """Return (is_goal, Outcome) for a shot.
+
+    Calibrated so that across many matches:
+      on-target (SAVED + goal) ≈ 30–40 % of shots
+      goals                    ≈ 10–13 % of shots
+    Both probabilities decrease with distance; finishing stat modulates goal rate.
+    """
+    p_on = max(0.32, 0.72 - dist_m / 58.0)
+    p_goal_given_on = max(0.32, (finishing / 99) * max(0.0, 0.85 - dist_m / 50.0))
+    r = rng.random()
+    if r < p_on * p_goal_given_on:
         return True, Outcome.ON_TARGET
-    return False, rng.choice([Outcome.SAVED, Outcome.BLOCKED])
+    if r < p_on:
+        return False, Outcome.SAVED
+    if r < p_on + (1.0 - p_on) * 0.40:
+        return False, Outcome.BLOCKED
+    return False, Outcome.OFF_TARGET
 
 
 # ---------------------------------------------------------------------------
@@ -327,7 +336,7 @@ class MatchEngine:
                 break
 
             # --- Shot: only when the current carrier is in the final third ---
-            if bx >= 68.0 and self._srng.random() < 0.030:
+            if bx >= 68.0 and self._srng.random() < 0.055:
                 sx   = _cx(bx + self._srng.uniform(-4, 8))
                 sy   = _cy(by + self._srng.uniform(-8, 8))
                 dist = math.hypot(PITCH_LENGTH_M - sx, sy - PITCH_WIDTH_M / 2)

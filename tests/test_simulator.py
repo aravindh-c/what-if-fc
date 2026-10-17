@@ -240,16 +240,61 @@ def test_stats_in_range(seed: int) -> None:
     assert passes, "no passes generated"
 
     comp_pct = len(complete) / len(passes)
-    assert 0.78 <= comp_pct <= 0.88, (
-        f"seed {seed}: pass completion {comp_pct:.2%} outside 78–88 %"
+    assert 0.75 <= comp_pct <= 0.89, (
+        f"seed {seed}: pass completion {comp_pct:.2%} outside 75–89 % (single-match tolerance)"
     )
-    assert 8 <= len(shots) <= 20, (
-        f"seed {seed}: shots {len(shots)} outside 8–20"
+    assert 8 <= len(shots) <= 40, (
+        f"seed {seed}: shots {len(shots)} outside 8–40"
     )
-    assert 0 <= len(goals) <= 5, (
-        f"seed {seed}: goals {len(goals)} outside 0–5"
+    assert 0 <= len(goals) <= 9, (
+        f"seed {seed}: goals {len(goals)} outside 0–9"
     )
     assert 1200 <= len(events) <= 2500, (
         f"seed {seed}: events {len(events)} outside 1 200–2 500"
     )
     assert len(snapshots) > 0, f"seed {seed}: no snapshots generated"
+
+
+# ---------------------------------------------------------------------------
+# Aggregate stats over seeds 1–30
+# ---------------------------------------------------------------------------
+
+
+def test_avg_stats_over_30_seeds() -> None:
+    """Aggregate shot/goal/on-target/pass-completion averages over seeds 1–30."""
+    total_shots = total_on_tgt = total_goals = total_passes = total_complete = 0
+
+    for seed in range(1, 31):
+        events, _ = _run(seed)
+        shots   = [e for e in events if e.event_type == EventType.SHOT]
+        on_tgt  = [s for s in shots if s.outcome in (Outcome.ON_TARGET, Outcome.SAVED)]
+        goals   = [e for e in events if e.event_type == EventType.GOAL]
+        passes  = [e for e in events if e.event_type == EventType.PASS]
+        complete = [p for p in passes if p.outcome == Outcome.COMPLETE]
+        total_shots    += len(shots)
+        total_on_tgt   += len(on_tgt)
+        total_goals    += len(goals)
+        total_passes   += len(passes)
+        total_complete += len(complete)
+
+    avg_shots  = total_shots  / 30
+    avg_goals  = total_goals  / 30
+    on_tgt_pct = total_on_tgt / total_shots
+    goal_pct   = total_goals  / total_shots
+    comp_pct   = total_complete / total_passes
+
+    assert 18 <= avg_shots <= 28, (
+        f"avg shots/match {avg_shots:.1f} outside 18–28"
+    )
+    assert 0.30 <= on_tgt_pct <= 0.40, (
+        f"on-target % {on_tgt_pct:.1%} outside 30–40 %"
+    )
+    assert 2.0 <= avg_goals <= 3.5, (
+        f"avg goals/match {avg_goals:.2f} outside 2.0–3.5"
+    )
+    assert 0.10 <= goal_pct <= 0.13, (
+        f"goal % {goal_pct:.1%} outside 10–13 %"
+    )
+    assert 0.78 <= comp_pct <= 0.88, (
+        f"avg pass completion {comp_pct:.2%} outside 78–88 %"
+    )
