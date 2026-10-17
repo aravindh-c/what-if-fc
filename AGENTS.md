@@ -23,6 +23,7 @@ What If FC (working title) is a solo entry for the Microsoft Premier League Hack
 - Small, pure functions in `analytics/`; I/O (Eventstream, KQL, Blob, Foundry) lives at the edges (`simulator/publisher.py`, `api/`, `agents/`).
 - Every new module gets tests in `tests/`. Name acceptance tests after their IDs (AT-01 … AT-12) in docstrings.
 - Run before committing: `ruff check . && pytest -q`.
+- Commit messages: plain, descriptive text only. Do not mention any AI assistant or tool, and do not add `Co-Authored-By`, "Generated with" or similar trailers.
 - Keep `data/` files small; generated full matches go to `data/generated/` (git-ignored).
 
 ## Repository map
