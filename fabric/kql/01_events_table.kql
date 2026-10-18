@@ -1,0 +1,12 @@
+// events table – created automatically by the Eventstream destination dst-events.
+// Pipeline: Eventstream whatif-es  →  source src-simulator (custom endpoint, Event Hub-compatible)
+//           →  destination dst-events  →  Eventhouse whatif / database whatif / table events
+//           Payload format: JSON, one MatchEvent per message.
+//
+// Schema (.show table events schema as csl):
+// <paste .show table events schema as csl output here>
+
+// ── Quick check ──────────────────────────────────────────────────────────────
+events
+| summarize events = count() by event_type
+| order by events desc

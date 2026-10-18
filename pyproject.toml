@@ -13,6 +13,7 @@ dependencies = [
     "pydantic>=2.7",
     "numpy>=1.26",
     "agent-framework-foundry",
+    "azure-eventhub>=5.11",
     "azure-identity>=1.17",
     "python-dotenv>=1.0",
 ]
