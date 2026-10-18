@@ -1,0 +1,194 @@
+{
+  "scenario_id": "late_counter",
+  "title": "Late Counter-Attack Missed",
+  "description": "T01's CM chooses a sideways pass to the centre-back instead of threading the ball to the onside striker free in the final third.",
+  "period": 2,
+  "match_clock_s": 5100,
+  "home": "T01",
+  "away": "T02",
+  "in_possession": "T01",
+  "snapshot": {
+    "snapshot_id": "sn_c",
+    "match_id": "demo",
+    "match_clock_s": 5100,
+    "positions": [
+      {
+        "player_id": "T01-P01",
+        "team_id": "T01",
+        "role": "GK",
+        "x": 5.0,
+        "y": 34.0
+      },
+      {
+        "player_id": "T01-P03",
+        "team_id": "T01",
+        "role": "CB",
+        "x": 25.0,
+        "y": 26.0
+      },
+      {
+        "player_id": "T01-P04",
+        "team_id": "T01",
+        "role": "CB",
+        "x": 48.0,
+        "y": 26.0
+      },
+      {
+        "player_id": "T01-P07",
+        "team_id": "T01",
+        "role": "FB",
+        "x": 30.0,
+        "y": 10.0
+      },
+      {
+        "player_id": "T01-P08",
+        "team_id": "T01",
+        "role": "FB",
+        "x": 30.0,
+        "y": 58.0
+      },
+      {
+        "player_id": "T01-P10",
+        "team_id": "T01",
+        "role": "DM",
+        "x": 40.0,
+        "y": 34.0
+      },
+      {
+        "player_id": "T01-P12",
+        "team_id": "T01",
+        "role": "CM",
+        "x": 50.0,
+        "y": 24.0
+      },
+      {
+        "player_id": "T01-P13",
+        "team_id": "T01",
+        "role": "CM",
+        "x": 52.0,
+        "y": 40.0
+      },
+      {
+        "player_id": "T01-P15",
+        "team_id": "T01",
+        "role": "W",
+        "x": 68.0,
+        "y": 10.0
+      },
+      {
+        "player_id": "T01-P16",
+        "team_id": "T01",
+        "role": "W",
+        "x": 68.0,
+        "y": 58.0
+      },
+      {
+        "player_id": "T01-P17",
+        "team_id": "T01",
+        "role": "ST",
+        "x": 78.0,
+        "y": 28.0
+      },
+      {
+        "player_id": "T02-P01",
+        "team_id": "T02",
+        "role": "GK",
+        "x": 100.0,
+        "y": 34.0
+      },
+      {
+        "player_id": "T02-P03",
+        "team_id": "T02",
+        "role": "CB",
+        "x": 82.0,
+        "y": 44.0
+      },
+      {
+        "player_id": "T02-P04",
+        "team_id": "T02",
+        "role": "CB",
+        "x": 84.0,
+        "y": 18.0
+      },
+      {
+        "player_id": "T02-P07",
+        "team_id": "T02",
+        "role": "FB",
+        "x": 75.0,
+        "y": 58.0
+      },
+      {
+        "player_id": "T02-P08",
+        "team_id": "T02",
+        "role": "FB",
+        "x": 75.0,
+        "y": 10.0
+      },
+      {
+        "player_id": "T02-P10",
+        "team_id": "T02",
+        "role": "DM",
+        "x": 63.0,
+        "y": 41.0
+      },
+      {
+        "player_id": "T02-P11",
+        "team_id": "T02",
+        "role": "DM",
+        "x": 63.0,
+        "y": 27.0
+      },
+      {
+        "player_id": "T02-P14",
+        "team_id": "T02",
+        "role": "AM",
+        "x": 45.0,
+        "y": 34.0
+      },
+      {
+        "player_id": "T02-P15",
+        "team_id": "T02",
+        "role": "W",
+        "x": 40.0,
+        "y": 56.0
+      },
+      {
+        "player_id": "T02-P16",
+        "team_id": "T02",
+        "role": "W",
+        "x": 40.0,
+        "y": 12.0
+      },
+      {
+        "player_id": "T02-P17",
+        "team_id": "T02",
+        "role": "ST",
+        "x": 30.0,
+        "y": 34.0
+      }
+    ]
+  },
+  "actual_pass": {
+    "event_id": "ev_c_001",
+    "match_id": "demo",
+    "scenario_id": "late_counter",
+    "seed": 0,
+    "event_time": "2026-01-01T00:00:00Z",
+    "match_clock_s": 5100,
+    "period": 2,
+    "event_type": "pass",
+    "team_id": "T01",
+    "player_id": "T01-P13",
+    "possession_id": 0,
+    "x": 52.0,
+    "y": 40.0,
+    "end_x": 48.0,
+    "end_y": 26.0,
+    "outcome": "complete",
+    "receiver_id": "T01-P04",
+    "pressure_level": 0.1,
+    "snapshot_id": "sn_c"
+  },
+  "expected_ghost_receiver_id": "T01-P17",
+  "why": "T01-P17 is onside and over 11 m behind the nearest defender with a clear lane to goal, while the pass to the CB surrenders all forward momentum."
+}

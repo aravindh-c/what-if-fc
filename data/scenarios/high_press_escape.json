@@ -1,0 +1,194 @@
+{
+  "scenario_id": "high_press_escape",
+  "title": "High Press Escape Route Missed",
+  "description": "T01's centre-back plays into the T02 high press instead of finding the DM who has dropped into space between the press lines.",
+  "period": 1,
+  "match_clock_s": 840,
+  "home": "T01",
+  "away": "T02",
+  "in_possession": "T01",
+  "snapshot": {
+    "snapshot_id": "sn_d",
+    "match_id": "demo",
+    "match_clock_s": 840,
+    "positions": [
+      {
+        "player_id": "T01-P01",
+        "team_id": "T01",
+        "role": "GK",
+        "x": 5.0,
+        "y": 34.0
+      },
+      {
+        "player_id": "T01-P03",
+        "team_id": "T01",
+        "role": "CB",
+        "x": 20.0,
+        "y": 30.0
+      },
+      {
+        "player_id": "T01-P04",
+        "team_id": "T01",
+        "role": "CB",
+        "x": 25.0,
+        "y": 42.0
+      },
+      {
+        "player_id": "T01-P07",
+        "team_id": "T01",
+        "role": "FB",
+        "x": 16.0,
+        "y": 8.0
+      },
+      {
+        "player_id": "T01-P08",
+        "team_id": "T01",
+        "role": "FB",
+        "x": 30.0,
+        "y": 58.0
+      },
+      {
+        "player_id": "T01-P10",
+        "team_id": "T01",
+        "role": "DM",
+        "x": 34.0,
+        "y": 36.0
+      },
+      {
+        "player_id": "T01-P12",
+        "team_id": "T01",
+        "role": "CM",
+        "x": 50.0,
+        "y": 24.0
+      },
+      {
+        "player_id": "T01-P13",
+        "team_id": "T01",
+        "role": "CM",
+        "x": 50.0,
+        "y": 44.0
+      },
+      {
+        "player_id": "T01-P15",
+        "team_id": "T01",
+        "role": "W",
+        "x": 68.0,
+        "y": 10.0
+      },
+      {
+        "player_id": "T01-P16",
+        "team_id": "T01",
+        "role": "W",
+        "x": 68.0,
+        "y": 58.0
+      },
+      {
+        "player_id": "T01-P17",
+        "team_id": "T01",
+        "role": "ST",
+        "x": 75.0,
+        "y": 34.0
+      },
+      {
+        "player_id": "T02-P01",
+        "team_id": "T02",
+        "role": "GK",
+        "x": 100.0,
+        "y": 34.0
+      },
+      {
+        "player_id": "T02-P03",
+        "team_id": "T02",
+        "role": "CB",
+        "x": 80.0,
+        "y": 42.0
+      },
+      {
+        "player_id": "T02-P04",
+        "team_id": "T02",
+        "role": "CB",
+        "x": 80.0,
+        "y": 26.0
+      },
+      {
+        "player_id": "T02-P07",
+        "team_id": "T02",
+        "role": "FB",
+        "x": 75.0,
+        "y": 58.0
+      },
+      {
+        "player_id": "T02-P08",
+        "team_id": "T02",
+        "role": "FB",
+        "x": 75.0,
+        "y": 10.0
+      },
+      {
+        "player_id": "T02-P10",
+        "team_id": "T02",
+        "role": "DM",
+        "x": 50.0,
+        "y": 41.0
+      },
+      {
+        "player_id": "T02-P11",
+        "team_id": "T02",
+        "role": "DM",
+        "x": 50.0,
+        "y": 27.0
+      },
+      {
+        "player_id": "T02-P14",
+        "team_id": "T02",
+        "role": "AM",
+        "x": 15.0,
+        "y": 9.0
+      },
+      {
+        "player_id": "T02-P15",
+        "team_id": "T02",
+        "role": "W",
+        "x": 24.0,
+        "y": 54.0
+      },
+      {
+        "player_id": "T02-P16",
+        "team_id": "T02",
+        "role": "W",
+        "x": 25.0,
+        "y": 14.0
+      },
+      {
+        "player_id": "T02-P17",
+        "team_id": "T02",
+        "role": "ST",
+        "x": 22.0,
+        "y": 30.0
+      }
+    ]
+  },
+  "actual_pass": {
+    "event_id": "ev_d_001",
+    "match_id": "demo",
+    "scenario_id": "high_press_escape",
+    "seed": 0,
+    "event_time": "2026-01-01T00:00:00Z",
+    "match_clock_s": 840,
+    "period": 1,
+    "event_type": "pass",
+    "team_id": "T01",
+    "player_id": "T01-P03",
+    "possession_id": 0,
+    "x": 20.0,
+    "y": 30.0,
+    "end_x": 16.2,
+    "end_y": 9.1,
+    "outcome": "incomplete",
+    "receiver_id": "T01-P07",
+    "pressure_level": 0.72,
+    "snapshot_id": "sn_d"
+  },
+  "expected_ghost_receiver_id": "T01-P10",
+  "why": "T01-P10 is open at (34,36) with the nearest T02 player 16 m away, while the pass to T01-P07 runs directly into T02-P14 who is 1.4 m from the target."
+}

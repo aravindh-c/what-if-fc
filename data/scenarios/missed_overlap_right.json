@@ -1,0 +1,194 @@
+{
+  "scenario_id": "missed_overlap_right",
+  "title": "Missed Overlap on the Right",
+  "description": "T01's CM plays the ball back to the DM instead of finding the overlapping full-back who has run into space on the flank.",
+  "period": 2,
+  "match_clock_s": 3720,
+  "home": "T01",
+  "away": "T02",
+  "in_possession": "T01",
+  "snapshot": {
+    "snapshot_id": "sn_a",
+    "match_id": "demo",
+    "match_clock_s": 3720,
+    "positions": [
+      {
+        "player_id": "T01-P01",
+        "team_id": "T01",
+        "role": "GK",
+        "x": 5.0,
+        "y": 34.0
+      },
+      {
+        "player_id": "T01-P03",
+        "team_id": "T01",
+        "role": "CB",
+        "x": 25.0,
+        "y": 26.0
+      },
+      {
+        "player_id": "T01-P04",
+        "team_id": "T01",
+        "role": "CB",
+        "x": 25.0,
+        "y": 42.0
+      },
+      {
+        "player_id": "T01-P07",
+        "team_id": "T01",
+        "role": "FB",
+        "x": 30.0,
+        "y": 10.0
+      },
+      {
+        "player_id": "T01-P08",
+        "team_id": "T01",
+        "role": "FB",
+        "x": 82.0,
+        "y": 60.0
+      },
+      {
+        "player_id": "T01-P10",
+        "team_id": "T01",
+        "role": "DM",
+        "x": 48.0,
+        "y": 32.0
+      },
+      {
+        "player_id": "T01-P12",
+        "team_id": "T01",
+        "role": "CM",
+        "x": 62.0,
+        "y": 30.0
+      },
+      {
+        "player_id": "T01-P13",
+        "team_id": "T01",
+        "role": "CM",
+        "x": 50.0,
+        "y": 44.0
+      },
+      {
+        "player_id": "T01-P15",
+        "team_id": "T01",
+        "role": "W",
+        "x": 68.0,
+        "y": 10.0
+      },
+      {
+        "player_id": "T01-P16",
+        "team_id": "T01",
+        "role": "W",
+        "x": 68.0,
+        "y": 58.0
+      },
+      {
+        "player_id": "T01-P17",
+        "team_id": "T01",
+        "role": "ST",
+        "x": 75.0,
+        "y": 34.0
+      },
+      {
+        "player_id": "T02-P01",
+        "team_id": "T02",
+        "role": "GK",
+        "x": 100.0,
+        "y": 34.0
+      },
+      {
+        "player_id": "T02-P03",
+        "team_id": "T02",
+        "role": "CB",
+        "x": 83.0,
+        "y": 42.0
+      },
+      {
+        "player_id": "T02-P04",
+        "team_id": "T02",
+        "role": "CB",
+        "x": 83.0,
+        "y": 26.0
+      },
+      {
+        "player_id": "T02-P07",
+        "team_id": "T02",
+        "role": "FB",
+        "x": 72.0,
+        "y": 44.0
+      },
+      {
+        "player_id": "T02-P08",
+        "team_id": "T02",
+        "role": "FB",
+        "x": 75.0,
+        "y": 10.0
+      },
+      {
+        "player_id": "T02-P10",
+        "team_id": "T02",
+        "role": "DM",
+        "x": 63.0,
+        "y": 41.0
+      },
+      {
+        "player_id": "T02-P11",
+        "team_id": "T02",
+        "role": "DM",
+        "x": 63.0,
+        "y": 27.0
+      },
+      {
+        "player_id": "T02-P14",
+        "team_id": "T02",
+        "role": "AM",
+        "x": 45.0,
+        "y": 34.0
+      },
+      {
+        "player_id": "T02-P15",
+        "team_id": "T02",
+        "role": "W",
+        "x": 40.0,
+        "y": 56.0
+      },
+      {
+        "player_id": "T02-P16",
+        "team_id": "T02",
+        "role": "W",
+        "x": 40.0,
+        "y": 12.0
+      },
+      {
+        "player_id": "T02-P17",
+        "team_id": "T02",
+        "role": "ST",
+        "x": 30.0,
+        "y": 34.0
+      }
+    ]
+  },
+  "actual_pass": {
+    "event_id": "ev_a_001",
+    "match_id": "demo",
+    "scenario_id": "missed_overlap_right",
+    "seed": 0,
+    "event_time": "2026-01-01T00:00:00Z",
+    "match_clock_s": 3720,
+    "period": 2,
+    "event_type": "pass",
+    "team_id": "T01",
+    "player_id": "T01-P12",
+    "possession_id": 0,
+    "x": 62.0,
+    "y": 30.0,
+    "end_x": 48.0,
+    "end_y": 32.0,
+    "outcome": "complete",
+    "receiver_id": "T01-P10",
+    "pressure_level": 0.2,
+    "snapshot_id": "sn_a"
+  },
+  "expected_ghost_receiver_id": "T01-P08",
+  "why": "T01-P08 is 18 m clear of the nearest defender in advanced space with the overlap already made, while the DM receives possession backwards with no defensive pressure."
+}

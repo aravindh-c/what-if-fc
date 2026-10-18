@@ -1,0 +1,194 @@
+{
+  "scenario_id": "forced_pass_into_traffic",
+  "title": "Forced Pass into Traffic",
+  "description": "T01's CM plays directly to the striker who is surrounded by three defenders, while the far-side winger is completely unmarked.",
+  "period": 1,
+  "match_clock_s": 2280,
+  "home": "T01",
+  "away": "T02",
+  "in_possession": "T01",
+  "snapshot": {
+    "snapshot_id": "sn_b",
+    "match_id": "demo",
+    "match_clock_s": 2280,
+    "positions": [
+      {
+        "player_id": "T01-P01",
+        "team_id": "T01",
+        "role": "GK",
+        "x": 5.0,
+        "y": 34.0
+      },
+      {
+        "player_id": "T01-P03",
+        "team_id": "T01",
+        "role": "CB",
+        "x": 25.0,
+        "y": 26.0
+      },
+      {
+        "player_id": "T01-P04",
+        "team_id": "T01",
+        "role": "CB",
+        "x": 25.0,
+        "y": 42.0
+      },
+      {
+        "player_id": "T01-P07",
+        "team_id": "T01",
+        "role": "FB",
+        "x": 30.0,
+        "y": 10.0
+      },
+      {
+        "player_id": "T01-P08",
+        "team_id": "T01",
+        "role": "FB",
+        "x": 30.0,
+        "y": 58.0
+      },
+      {
+        "player_id": "T01-P10",
+        "team_id": "T01",
+        "role": "DM",
+        "x": 40.0,
+        "y": 34.0
+      },
+      {
+        "player_id": "T01-P12",
+        "team_id": "T01",
+        "role": "CM",
+        "x": 75.0,
+        "y": 34.0
+      },
+      {
+        "player_id": "T01-P13",
+        "team_id": "T01",
+        "role": "CM",
+        "x": 50.0,
+        "y": 44.0
+      },
+      {
+        "player_id": "T01-P15",
+        "team_id": "T01",
+        "role": "W",
+        "x": 86.0,
+        "y": 12.0
+      },
+      {
+        "player_id": "T01-P16",
+        "team_id": "T01",
+        "role": "W",
+        "x": 68.0,
+        "y": 58.0
+      },
+      {
+        "player_id": "T01-P17",
+        "team_id": "T01",
+        "role": "ST",
+        "x": 88.0,
+        "y": 36.0
+      },
+      {
+        "player_id": "T02-P01",
+        "team_id": "T02",
+        "role": "GK",
+        "x": 100.0,
+        "y": 34.0
+      },
+      {
+        "player_id": "T02-P03",
+        "team_id": "T02",
+        "role": "CB",
+        "x": 90.0,
+        "y": 36.0
+      },
+      {
+        "player_id": "T02-P04",
+        "team_id": "T02",
+        "role": "CB",
+        "x": 88.0,
+        "y": 32.0
+      },
+      {
+        "player_id": "T02-P07",
+        "team_id": "T02",
+        "role": "FB",
+        "x": 75.0,
+        "y": 58.0
+      },
+      {
+        "player_id": "T02-P08",
+        "team_id": "T02",
+        "role": "FB",
+        "x": 86.0,
+        "y": 38.0
+      },
+      {
+        "player_id": "T02-P10",
+        "team_id": "T02",
+        "role": "DM",
+        "x": 63.0,
+        "y": 41.0
+      },
+      {
+        "player_id": "T02-P11",
+        "team_id": "T02",
+        "role": "DM",
+        "x": 63.0,
+        "y": 27.0
+      },
+      {
+        "player_id": "T02-P14",
+        "team_id": "T02",
+        "role": "AM",
+        "x": 45.0,
+        "y": 34.0
+      },
+      {
+        "player_id": "T02-P15",
+        "team_id": "T02",
+        "role": "W",
+        "x": 40.0,
+        "y": 56.0
+      },
+      {
+        "player_id": "T02-P16",
+        "team_id": "T02",
+        "role": "W",
+        "x": 40.0,
+        "y": 12.0
+      },
+      {
+        "player_id": "T02-P17",
+        "team_id": "T02",
+        "role": "ST",
+        "x": 30.0,
+        "y": 34.0
+      }
+    ]
+  },
+  "actual_pass": {
+    "event_id": "ev_b_001",
+    "match_id": "demo",
+    "scenario_id": "forced_pass_into_traffic",
+    "seed": 0,
+    "event_time": "2026-01-01T00:00:00Z",
+    "match_clock_s": 2280,
+    "period": 1,
+    "event_type": "pass",
+    "team_id": "T01",
+    "player_id": "T01-P12",
+    "possession_id": 0,
+    "x": 75.0,
+    "y": 34.0,
+    "end_x": 88.0,
+    "end_y": 36.0,
+    "outcome": "complete",
+    "receiver_id": "T01-P17",
+    "pressure_level": 0.15,
+    "snapshot_id": "sn_b"
+  },
+  "expected_ghost_receiver_id": "T01-P15",
+  "why": "T01-P15 is over 24 m from the nearest defender with an open lane from the CM, whereas T01-P17 receives into a three-defender trap with no room to turn."
+}
