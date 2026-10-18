@@ -141,7 +141,8 @@ def _build_scenarios() -> list[Scenario]:
         ov2={
             "T02-P03": (83.0, 42.0),   # CB behind the FB → T01-P08 onside
             "T02-P04": (83.0, 26.0),   # CB
-            "T02-P07": (72.0, 44.0),   # FB moved away from ghost receiver
+            "T02-P07": (73.0, 56.0),   # FB on the flank, off the overlap lane
+            "T02-P11": (57.0, 22.0),   # DM dropped back, off the overlap lane
         },
     )
     pass_a = pass_event(
@@ -170,7 +171,7 @@ def _build_scenarios() -> list[Scenario]:
             "T01-P17": (88.0, 36.0),   # ST (actual receiver)
         },
         ov2={
-            "T02-P03": (90.0, 36.0),   # CB 2 m from ST
+            "T02-P03": (91.0, 36.0),   # CB 3 m from ST
             "T02-P04": (88.0, 32.0),   # CB 4 m from ST
             "T02-P08": (86.0, 38.0),   # FB 2.8 m from ST
         },
@@ -236,7 +237,7 @@ def _build_scenarios() -> list[Scenario]:
             "T02-P14": (15.0, 9.0),    # AM intercepting FB pass
             "T02-P15": (24.0, 54.0),   # W wide press
             "T02-P16": (25.0, 14.0),   # W right press
-            "T02-P17": (22.0, 30.0),   # ST pressing CB
+            "T02-P17": (22.0, 25.0),   # ST pressing CB, off the escape lane
         },
     )
     pass_d = pass_event(
@@ -264,7 +265,7 @@ def _build_scenarios() -> list[Scenario]:
             actual_pass=pass_a,
             expected_ghost_receiver_id="T01-P08",
             why=(
-                "T01-P08 is 18 m clear of the nearest defender in advanced space"
+                "T01-P08 is 10 m clear of the nearest defender in advanced space"
                 " with the overlap already made, while the DM receives possession"
                 " backwards with no defensive pressure."
             ),

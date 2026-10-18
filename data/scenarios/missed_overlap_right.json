@@ -114,8 +114,8 @@
         "player_id": "T02-P07",
         "team_id": "T02",
         "role": "FB",
-        "x": 72.0,
-        "y": 44.0
+        "x": 73.0,
+        "y": 56.0
       },
       {
         "player_id": "T02-P08",
@@ -135,8 +135,8 @@
         "player_id": "T02-P11",
         "team_id": "T02",
         "role": "DM",
-        "x": 63.0,
-        "y": 27.0
+        "x": 57.0,
+        "y": 22.0
       },
       {
         "player_id": "T02-P14",
@@ -190,5 +190,5 @@
     "snapshot_id": "sn_a"
   },
   "expected_ghost_receiver_id": "T01-P08",
-  "why": "T01-P08 is 18 m clear of the nearest defender in advanced space with the overlap already made, while the DM receives possession backwards with no defensive pressure."
+  "why": "T01-P08 is 10 m clear of the nearest defender in advanced space with the overlap already made, while the DM receives possession backwards with no defensive pressure."
 }

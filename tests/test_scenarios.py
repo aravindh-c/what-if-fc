@@ -148,6 +148,65 @@ def test_nearest_defender_to_actual_receiver_within_4m(
 
 
 # ---------------------------------------------------------------------------
+# Ghost pass lane and receiver spacing
+# ---------------------------------------------------------------------------
+
+
+def _pt_seg_dist(px: float, py: float, ax: float, ay: float, bx: float, by: float) -> float:
+    """Minimum distance from point (px,py) to segment AB."""
+    dx, dy = bx - ax, by - ay
+    if dx == 0 and dy == 0:
+        return math.hypot(px - ax, py - ay)
+    t = ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy)
+    t = max(0.0, min(1.0, t))
+    return math.hypot(px - ax - t * dx, py - ay - t * dy)
+
+
+def test_ghost_pass_lane_interior_clear(scenarios: list[Scenario]) -> None:
+    """No defender within 5 m of any point ≥20 % along the passer→ghost segment.
+
+    The first 20 % is excluded so a pressing defender near the passer does not
+    spuriously block the lane further down the pitch.
+    """
+    for s in scenarios:
+        defending = "T02" if s.in_possession == "T01" else "T01"
+        pos = {p.player_id: (p.x, p.y) for p in s.snapshot.positions}
+        px, py = pos[s.actual_pass.player_id]
+        gx, gy = pos[s.expected_ghost_receiver_id]
+        dx, dy = gx - px, gy - py
+        seg_len2 = dx * dx + dy * dy
+        for p in s.snapshot.positions:
+            if p.team_id != defending or seg_len2 == 0:
+                continue
+            t = ((p.x - px) * dx + (p.y - py) * dy) / seg_len2
+            if t < 0.2:
+                continue  # in/behind the pressing zone
+            d = _pt_seg_dist(p.x, p.y, px, py, gx, gy)
+            assert d >= 5.0, (
+                f"{s.scenario_id}: {p.player_id} ({p.x},{p.y}) is {d:.1f} m from "
+                f"ghost lane ({px},{py})→({gx},{gy})"
+            )
+
+
+def test_complete_pass_receiver_not_contested(scenarios: list[Scenario]) -> None:
+    """For COMPLETE passes no opponent should be within 2.5 m of the receiver."""
+    for s in scenarios:
+        if s.actual_pass.outcome != Outcome.COMPLETE:
+            continue
+        defending = "T02" if s.in_possession == "T01" else "T01"
+        pos = {p.player_id: (p.x, p.y) for p in s.snapshot.positions}
+        rx, ry = pos[s.actual_pass.receiver_id]
+        for p in s.snapshot.positions:
+            if p.team_id != defending:
+                continue
+            d = math.hypot(rx - p.x, ry - p.y)
+            assert d >= 2.5, (
+                f"{s.scenario_id}: {p.player_id} ({p.x},{p.y}) is {d:.1f} m from "
+                f"receiver {s.actual_pass.receiver_id} ({rx},{ry})"
+            )
+
+
+# ---------------------------------------------------------------------------
 # JSON file consistency
 # ---------------------------------------------------------------------------
 
