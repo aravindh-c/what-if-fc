@@ -172,6 +172,7 @@ class CandidateScore:
     S: float
     openness: float
     length: float
+    nearest_defender_m: float
     is_actual: bool = False
 
 
@@ -240,20 +241,24 @@ def score_pass(
     actual_receiver_id = event.receiver_id
     assert actual_receiver_id is not None
 
+    # If the actual receiver is not in the snapshot at all, never show a ghost.
+    actual_in_snapshot = any(p.player_id == actual_receiver_id for p in teammates)
+
     for tm in teammates:
-        # Exclude GK
-        if tm.role == "GK":
+        # Check actual-receiver status first so it overrides all filters below.
+        is_actual = tm.player_id == actual_receiver_id
+        # Exclude GK unless they are the actual receiver.
+        if tm.role == "GK" and not is_actual:
             continue
-        # Distance filter
+        # Distance filter (actual receiver always included regardless of distance).
         d = _dist(event.x, event.y, tm.x, tm.y)
-        if d > _MAX_CANDIDATE_DIST and tm.player_id != actual_receiver_id:
+        if d > _MAX_CANDIDATE_DIST and not is_actual:
             continue
-        # Offside filter (actual receiver always included)
-        if tm.player_id != actual_receiver_id and _is_offside(tm.x, ball_x, opponents):
+        # Offside filter (actual receiver always included).
+        if not is_actual and _is_offside(tm.x, ball_x, opponents):
             continue
 
-        is_actual = tm.player_id == actual_receiver_id
-        # Use actual pass end coords for the actual receiver; teammate position for alternatives
+        # Use actual pass end coords for the actual receiver; teammate position for alternatives.
         if is_actual:
             ex, ey = event.end_x, event.end_y
         else:
@@ -263,6 +268,8 @@ def score_pass(
         P = _score_P(event.x, ex)
         F, R, openness, length = _score_FR(event.x, event.y, ex, ey, opponents)
         S = _score_S(T, P, F, R)
+        end_dists = [_dist(p.x, p.y, ex, ey) for p in opponents]
+        nearest_def_m = round(min(end_dists) if end_dists else 99.0, 1)
 
         candidates.append(CandidateScore(
             player_id=tm.player_id,
@@ -276,6 +283,7 @@ def score_pass(
             S=round(S, 6),
             openness=round(openness, 6),
             length=round(length, 6),
+            nearest_defender_m=nearest_def_m,
             is_actual=is_actual,
         ))
 
@@ -288,7 +296,9 @@ def score_pass(
     delta = round(best_alt_S - actual_S, 6)
 
     ghost_shown = (
-        best_alt is not None
+        actual_in_snapshot
+        and actual_cand is not None
+        and best_alt is not None
         and delta >= _GHOST_MIN_DELTA
         and best_alt.F >= _GHOST_MIN_F
     )

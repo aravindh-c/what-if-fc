@@ -184,9 +184,9 @@ def _minimal_snapshot(
     team1_count = sum(1 for p in positions if p.team_id == passer_team)
     team2_count = sum(1 for p in positions if p.team_id == "T02")
     for i in range(11 - team1_count):
-        positions.append(_make_pos(f"pad1_{i}", passer_team, "DF", float(i * 5), 5.0))
+        positions.append(_make_pos(f"pad1_{i}", passer_team, "CB", float(i * 5), 5.0))
     for i in range(11 - team2_count):
-        positions.append(_make_pos(f"pad2_{i}", "T02", "DF", float(90 + i), 5.0))
+        positions.append(_make_pos(f"pad2_{i}", "T02", "CB", float(90 + i), 5.0))
     # Fix one GK each (pad players above might not have GK)
     # Ensure each team has a GK
     t1_has_gk = any(p.role == Role.GK and p.team_id == passer_team for p in positions)
@@ -243,8 +243,8 @@ def test_actual_receiver_always_present() -> None:
         assert actual_ids[0] == ev.receiver_id
 
 
-def test_gk_never_a_candidate() -> None:
-    """GK is never in the candidates list."""
+def test_gk_never_a_non_actual_candidate() -> None:
+    """GK is never an alternative candidate (may appear as actual receiver)."""
     for scen_id in _SCENARIO_IDS:
         sc = _load_scenario(scen_id)
         ev = MatchEvent(**sc["actual_pass"])
@@ -252,9 +252,38 @@ def test_gk_never_a_candidate() -> None:
         result = score_pass(ev, snap)
         snap_roles = {p.player_id: p.role for p in snap.positions}
         for cand in result.candidates:
+            if cand["is_actual"]:
+                continue
             assert snap_roles.get(cand["player_id"]) != Role.GK, (
-                f"{scen_id}: GK {cand['player_id']} in candidates"
+                f"{scen_id}: GK {cand['player_id']} is a non-actual candidate"
             )
+
+
+def test_gk_can_be_actual_receiver() -> None:
+    """GK appears as actual candidate when they are the receiver."""
+    # Use a real scenario event, reroute the pass to the T01 GK position.
+    sc = _load_scenario("missed_overlap_right")
+    snap = PositionSnapshot(**sc["snapshot"])
+    gk = next(p for p in snap.positions if p.team_id == "T01" and p.role == Role.GK)
+    ev_data = dict(sc["actual_pass"])
+    ev_data["receiver_id"] = gk.player_id
+    ev_data["end_x"] = gk.x
+    ev_data["end_y"] = gk.y
+    ev = MatchEvent(**ev_data)
+    result = score_pass(ev, snap)
+    actual_ids = [c["player_id"] for c in result.candidates if c["is_actual"]]
+    assert gk.player_id in actual_ids, "GK should be actual candidate when they are the receiver"
+
+
+def test_missing_receiver_no_ghost() -> None:
+    """When receiver_id is not in the snapshot, ghost_shown is always False."""
+    sc = _load_scenario("missed_overlap_right")
+    ev_data = dict(sc["actual_pass"])
+    ev_data["receiver_id"] = "PLAYER-NOT-IN-SNAPSHOT"
+    ev = MatchEvent(**ev_data)
+    snap = PositionSnapshot(**sc["snapshot"])
+    result = score_pass(ev, snap)
+    assert not result.ghost_shown
 
 
 def test_scores_within_range() -> None:

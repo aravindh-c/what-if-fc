@@ -94,6 +94,20 @@ def test_evidence_packet_pass_difficulty_range(missed_overlap_packet: EvidencePa
     assert 0.0 <= missed_overlap_packet.pass_difficulty <= 100.0
 
 
+def test_scoreline_has_both_teams(missed_overlap_packet: EvidencePacket) -> None:
+    """Scoreline must contain entries for both teams even when one has 0 goals."""
+    assert len(missed_overlap_packet.live_metrics.scoreline) == 2
+    for score in missed_overlap_packet.live_metrics.scoreline.values():
+        assert isinstance(score, int)
+
+
+def test_packet_json_roundtrip(missed_overlap_packet: EvidencePacket) -> None:
+    """Serialise → deserialise → re-serialise must be lossless."""
+    raw = missed_overlap_packet.model_dump_json()
+    reparsed = EvidencePacket.model_validate_json(raw)
+    assert reparsed.model_dump_json() == raw
+
+
 def test_evidence_packet_scores_match_twin() -> None:
     sc = _load_scenario("forced_pass_into_traffic")
     ev = MatchEvent(**sc["actual_pass"])

@@ -49,6 +49,13 @@ class EvidencePacket(BaseModel):
     ghost_shown: bool
     formula_version: str            # always "twin-v1"
     label: str                      # fixed disclaimer
+    passer_id: str | None
+    actual_receiver_id: str | None
+    highlight_defenders: list[str]
+    actual_pass_length_m: float
+    ghost_pass_length_m: float | None
+    actual_nearest_defender_m: float | None
+    ghost_nearest_defender_m: float | None
 
 
 _LABEL = "heuristic tactical option score, not a probability"
@@ -104,8 +111,11 @@ def build_evidence_packet(
         if r.minute == minute
     }
 
-    # --- scoreline: count goals up to and including this moment's clock ---
-    scoreline: dict[str, int] = {}
+    # --- scoreline: both teams always present (0 if no goals) ---
+    all_team_ids: set[str] = {e.team_id for e in evs if e.team_id}
+    if snapshot is not None:
+        all_team_ids.update(p.team_id for p in snapshot.positions)
+    scoreline: dict[str, int] = {tid: 0 for tid in sorted(all_team_ids)}
     for e in evs:
         if e.event_type == "goal" and e.team_id and e.match_clock_s <= moment.match_clock_s:
             scoreline[e.team_id] = scoreline.get(e.team_id, 0) + 1
@@ -134,6 +144,27 @@ def build_evidence_packet(
                 1,
             )
 
+    # --- new spacing/identity fields ---
+    actual_cand_dict = next((c for c in twin.candidates if c.get("is_actual")), None)
+    ghost_cand_dict = (
+        next(
+            (c for c in twin.candidates if c.get("player_id") == twin.best_alt_player_id),
+            None,
+        )
+        if twin.ghost_shown
+        else None
+    )
+    actual_pass_length_m = round(actual_cand_dict["length"], 1) if actual_cand_dict else 0.0
+    ghost_pass_length_m = (
+        round(ghost_cand_dict["length"], 1) if ghost_cand_dict else None
+    )
+    actual_nearest_def = (
+        round(actual_cand_dict["nearest_defender_m"], 1) if actual_cand_dict else None
+    )
+    ghost_nearest_def = (
+        round(ghost_cand_dict["nearest_defender_m"], 1) if ghost_cand_dict else None
+    )
+
     return EvidencePacket(
         match_id=match_id,
         moment_type=moment.moment_type,
@@ -153,4 +184,11 @@ def build_evidence_packet(
         ghost_shown=twin.ghost_shown,
         formula_version=twin.version,
         label=_LABEL,
+        passer_id=trigger_ev.player_id if trigger_ev else None,
+        actual_receiver_id=trigger_ev.receiver_id if trigger_ev else None,
+        highlight_defenders=list(twin.visual.highlight_defenders),
+        actual_pass_length_m=actual_pass_length_m,
+        ghost_pass_length_m=ghost_pass_length_m,
+        actual_nearest_defender_m=actual_nearest_def,
+        ghost_nearest_defender_m=ghost_nearest_def,
     )
