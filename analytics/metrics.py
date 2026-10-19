@@ -24,6 +24,10 @@ from core.schemas import EventType, MatchEvent, Outcome
 _HALF_X: float = 52.5        # boundary for pressure_index (possessing-team frame)
 _FINAL_THIRD_X: float = 70.0 # x threshold for attacking actions and final-third events
 _ROLL_MINS: int = 5          # rolling-window width in minutes
+_HPFTP_X: float = 80.0       # high_pressure_final_third_pass x threshold
+_HPFTP_PRESSURE: float = 0.6 # high_pressure_final_third_pass pressure threshold
+_FTT_X: float = 80.0         # final_third_turnover x threshold
+_SWING_MIN_MINUTE: int = 8   # momentum_swing ignored before this minute
 
 _POSSESSION_TYPES = frozenset(
     {EventType.PASS, EventType.CARRY, EventType.RECEPTION, EventType.SHOT}
@@ -79,6 +83,7 @@ class KeyMoment:
     event_id: str
     snapshot_id: str | None
     value: float
+    score: float  # 0–1 heuristic importance; not a probability
 
 
 # ---------------------------------------------------------------------------
@@ -105,6 +110,19 @@ def _match_id(events: Sequence[MatchEvent]) -> str:
 
 def _teams(events: Sequence[MatchEvent]) -> list[str]:
     return sorted({ev.team_id for ev in events if ev.team_id is not None})
+
+
+def _km_score(moment_type: str, pressure_level: float, x: float) -> float:
+    """Heuristic importance score 0–1 for a key moment candidate."""
+    if moment_type == "goal":
+        return 1.0
+    if moment_type == "momentum_swing":
+        return 0.7
+    if moment_type == "high_pressure_final_third_pass":
+        return min(1.0, max(0.0, 0.3 + 0.4 * pressure_level + 0.3 * ((x - 80.0) / 25.0)))
+    if moment_type == "final_third_turnover":
+        return min(1.0, max(0.0, 0.4 + 0.4 * ((x - 80.0) / 25.0)))
+    return 0.0
 
 
 # ---------------------------------------------------------------------------
@@ -269,10 +287,9 @@ def key_moments(events: Sequence[MatchEvent]) -> list[KeyMoment]:
     moment_type values and trigger conditions:
       goal                       – EventType.GOAL
       high_pressure_final_third_pass
-                                 – pass, x >= 70, pressure_level >= 0.5, snapshot_id set
-      final_third_turnover       – tackle/interception won, x >= 70 (possessing-team frame)
-      momentum_swing             – first minute where the rolling-window momentum leader
-                                   changes and the new leader's share >= 0.60
+                                 – pass, x >= 80, pressure_level >= 0.6, snapshot_id set
+      final_third_turnover       – tackle/interception won, x >= 80 (possessing-team frame)
+      momentum_swing             – leader changes, new leader share >= 0.60, minute >= 8
 
     Mirrors KQL KeyMoments().
     """
@@ -299,14 +316,15 @@ def key_moments(events: Sequence[MatchEvent]) -> list[KeyMoment]:
                     event_id=ev.event_id,
                     snapshot_id=ev.snapshot_id,
                     value=1.0,
+                    score=1.0,
                 )
             )
 
         elif (
             ev.event_type == EventType.PASS
             and ev.x is not None
-            and ev.x >= _FINAL_THIRD_X
-            and ev.pressure_level >= 0.5
+            and ev.x >= _HPFTP_X
+            and ev.pressure_level >= _HPFTP_PRESSURE
             and ev.snapshot_id is not None
         ):
             moments.append(
@@ -319,6 +337,7 @@ def key_moments(events: Sequence[MatchEvent]) -> list[KeyMoment]:
                     event_id=ev.event_id,
                     snapshot_id=ev.snapshot_id,
                     value=ev.pressure_level,
+                    score=_km_score("high_pressure_final_third_pass", ev.pressure_level, ev.x),
                 )
             )
 
@@ -326,7 +345,7 @@ def key_moments(events: Sequence[MatchEvent]) -> list[KeyMoment]:
             ev.event_type in {EventType.TACKLE, EventType.INTERCEPTION}
             and ev.outcome == Outcome.WON
             and ev.x is not None
-            and ev.x >= _FINAL_THIRD_X
+            and ev.x >= _FTT_X
         ):
             moments.append(
                 KeyMoment(
@@ -338,6 +357,7 @@ def key_moments(events: Sequence[MatchEvent]) -> list[KeyMoment]:
                     event_id=ev.event_id,
                     snapshot_id=ev.snapshot_id,
                     value=float(ev.x),
+                    score=_km_score("final_third_turnover", 0.0, ev.x),
                 )
             )
 
@@ -360,7 +380,7 @@ def key_moments(events: Sequence[MatchEvent]) -> list[KeyMoment]:
             if best.share < 0.60:
                 continue  # no dominant leader; keep prev_leader unchanged
             leader = best.team_id
-            if prev_leader is not None and leader != prev_leader:
+            if m >= _SWING_MIN_MINUTE and prev_leader is not None and leader != prev_leader:
                 rep = next(
                     (e for e in evs_by_minute.get(m, []) if e.team_id == leader),
                     evs_by_minute.get(m, [None])[0],  # type: ignore[index]
@@ -376,9 +396,50 @@ def key_moments(events: Sequence[MatchEvent]) -> list[KeyMoment]:
                             event_id=rep.event_id,
                             snapshot_id=rep.snapshot_id,
                             value=round(best.share, 3),
+                            score=0.7,
                         )
                     )
             prev_leader = leader
 
     moments.sort(key=lambda km: km.match_clock_s)
     return moments
+
+
+# ---------------------------------------------------------------------------
+# headline_moments
+# ---------------------------------------------------------------------------
+
+
+def headline_moments(
+    events: Sequence[MatchEvent], window_s: int = 180, cap: int = 12
+) -> list[KeyMoment]:
+    """Select the most important key moments for display.
+
+    All goals are always included.  Non-goal candidates are window-deduplicated
+    (best score per bin(match_clock_s, window_s)) and then the top
+    max(0, cap - n_goals) by score are kept.  Ties broken by earlier match_clock_s.
+    Returns moments sorted by match_clock_s.  Mirrors KQL HeadlineMoments().
+    """
+    candidates = key_moments(events)
+    goals = [km for km in candidates if km.moment_type == "goal"]
+    others = [km for km in candidates if km.moment_type != "goal"]
+
+    # Window-deduplicate: keep highest-score per bin; ties → earlier clock wins
+    window_best: dict[int, KeyMoment] = {}
+    for km in others:
+        win = km.match_clock_s // window_s
+        prev = window_best.get(win)
+        if (
+            prev is None
+            or km.score > prev.score
+            or (km.score == prev.score and km.match_clock_s < prev.match_clock_s)
+        ):
+            window_best[win] = km
+
+    survivors = sorted(window_best.values(), key=lambda km: (-km.score, km.match_clock_s))
+    n_slots = max(0, cap - len(goals))
+    selected = survivors[:n_slots]
+
+    result = goals + selected
+    result.sort(key=lambda km: km.match_clock_s)
+    return result

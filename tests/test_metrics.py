@@ -14,18 +14,18 @@ Event timeline (all period 1):
   clock  team  type            x     outcome        notes
   -----  ----  --------------- ----  -------------  ------------------------------------
     10   T01   pass complete   50    complete       plain backward pass
-    65   T01   pass complete   75    complete  0.6  high-pressure final-third pass (snapshot)
+    65   T01   pass complete   83    complete  0.6  high-pressure final-third pass (snapshot)
     70   T01   shot            80    on_target      attacking action (+3)
     75   T01   goal           100    –              goal
     80   T02   pressure        30    –              x=30 < 52.5 → pressure_index T02 min1
    120   T02   pass incomplete  50   incomplete
    125   T01   carry complete   60   complete       possession; x=60 not final-third
    180   T02   pass complete    55   complete
-   190   T02   tackle won       78   won            x=78 ≥ 70 → final_third_turnover
+   190   T02   tackle won       82   won            x=82 ≥ 80 → final_third_turnover
    240   T01   pass incomplete  45   incomplete
    300   T02   pass complete    60   complete
    310   T02   pressure         40   –              x=40 < 52.5 → pressure_index T02 min5
-   320   T02   tackle won       72   won            x=72 ≥ 70 → final_third_turnover
+   320   T02   tackle won       81   won            x=81 ≥ 80 → final_third_turnover
    360   T01   pass complete    55   complete
    480   T02   shot             90   off_target     attacking action (+3); momentum T02 min8
    490   T02   shot             85   saved          attacking action (+3); momentum T02 min8
@@ -46,6 +46,7 @@ from analytics.metrics import (
     MomentumRow,
     PressureRow,
     TeamStats,
+    headline_moments,
     key_moments,
     match_stats,
     momentum,
@@ -131,18 +132,18 @@ def _period_end(eid: str, clock: int) -> MatchEvent:
 
 FIXTURE: list[MatchEvent] = [
     _pass("e02", 10,  "T01", 50.0, 60.0),                                 # min0, T01 pass comp
-    _pass("e03", 65,  "T01", 75.0, 85.0, pressure=0.6, snap="s1"),        # min1, hpftp
+    _pass("e03", 65,  "T01", 83.0, 93.0, pressure=0.6, snap="s1"),        # min1, hpftp x=83
     _shot("e04", 70,  "T01", 80.0),                                        # min1, T01 shot +3
     _goal("e05", 75,  "T01"),                                              # min1, T01 goal
     _pressure("e06", 80, "T02", 30.0),                                     # min1, T02 press x<52.5
     _pass("e07", 120, "T02", 50.0, 40.0, outcome=Outcome.INCOMPLETE),     # min2, T02 incomp
     _carry("e08", 125, "T01", 60.0, 70.0),                                # min2, T01 carry
     _pass("e09", 180, "T02", 55.0, 65.0),                                  # min3, T02 comp
-    _tackle("e10", 190, "T02", 78.0),                                      # min3, ftt x=78
+    _tackle("e10", 190, "T02", 82.0),                                      # min3, ftt x=82
     _pass("e11", 240, "T01", 45.0, 35.0, outcome=Outcome.INCOMPLETE),     # min4, T01 incomp
     _pass("e12", 300, "T02", 60.0, 50.0),                                  # min5, T02 comp
     _pressure("e13", 310, "T02", 40.0),                                    # min5, T02 press x<52.5
-    _tackle("e14", 320, "T02", 72.0),                                      # min5, ftt x=72
+    _tackle("e14", 320, "T02", 81.0),                                      # min5, ftt x=81
     _pass("e15", 360, "T01", 55.0, 65.0),                                  # min6, T01 comp
     _shot("e16", 480, "T02", 90.0, outcome=Outcome.OFF_TARGET),           # min8, T02 shot +3
     _shot("e17", 490, "T02", 85.0, outcome=Outcome.SAVED),                # min8, T02 shot +3
@@ -283,7 +284,7 @@ class TestPressureIndex:
         assert _press_at(rows, 8, "T02") == pytest.approx(0.2)
 
     def test_high_x_tackle_not_counted(self) -> None:
-        # e10 (tackle, x=78) and e14 (tackle, x=72) both ≥52.5 → not counted
+        # e10 (tackle, x=82) and e14 (tackle, x=81) both ≥52.5 → not counted
         rows = pressure_index(FIXTURE)
         # T02 at min3 (window [0,3]): only e06 at min1 → 1/4 = 0.25
         assert _press_at(rows, 3, "T02") == pytest.approx(0.25)
@@ -301,6 +302,7 @@ class TestKeyMoments:
         assert g.event_id == "e05"
         assert g.match_clock_s == 75
         assert g.value == 1.0
+        assert g.score == pytest.approx(1.0)
 
     def test_high_pressure_final_third_pass(self) -> None:
         kms = key_moments(FIXTURE)
@@ -310,6 +312,8 @@ class TestKeyMoments:
         assert h.event_id == "e03"
         assert h.snapshot_id == "s1"
         assert h.value == pytest.approx(0.6)
+        # score = clamp(0.3 + 0.4*0.6 + 0.3*(3/25)) = 0.576
+        assert h.score == pytest.approx(0.576, abs=0.001)
 
     def test_final_third_turnovers(self) -> None:
         kms = key_moments(FIXTURE)
@@ -317,9 +321,14 @@ class TestKeyMoments:
         assert len(ftts) == 2
         event_ids = {k.event_id for k in ftts}
         assert event_ids == {"e10", "e14"}
+        scores = {k.event_id: k.score for k in ftts}
         for k in ftts:
             assert k.team_id == "T02"
-            assert k.value >= 70.0  # x coordinate
+            assert k.value >= 80.0  # x coordinate
+        # e10 x=82: 0.4 + 0.4*(2/25) = 0.432
+        assert scores["e10"] == pytest.approx(0.432, abs=0.001)
+        # e14 x=81: 0.4 + 0.4*(1/25) = 0.416
+        assert scores["e14"] == pytest.approx(0.416, abs=0.001)
 
     def test_momentum_swing_detected(self) -> None:
         # T01 led at min1-5 (share=1.0); T02 takes over at min8 (share=1.0)
@@ -330,6 +339,16 @@ class TestKeyMoments:
         assert s.team_id == "T02"
         assert s.match_clock_s == 8 * 60
         assert s.value == pytest.approx(1.0)
+        assert s.score == pytest.approx(0.7)
+
+    def test_momentum_swing_not_before_min8(self) -> None:
+        # Leadership changes before min8 must not produce a swing
+        kms = key_moments(FIXTURE)
+        for km in kms:
+            if km.moment_type == "momentum_swing":
+                assert km.match_clock_s >= 8 * 60, (
+                    f"swing at {km.match_clock_s}s is before minute 8"
+                )
 
     def test_total_key_moment_count(self) -> None:
         # 1 goal + 1 hpftp + 2 ftt + 1 swing = 5
@@ -403,3 +422,100 @@ def test_seed7_realistic_completion(seed7_events: list[MatchEvent]) -> None:
             assert 70.0 <= s.completion_pct <= 97.0, (
                 f"{s.team_id}: completion {s.completion_pct}% outside expected range"
             )
+
+
+# ===========================================================================
+# headline_moments – fixture tests
+# ===========================================================================
+
+
+class TestHeadlineMomentsFixture:
+    """Fixture-level tests for headline_moments using the hand-built FIXTURE."""
+
+    def test_goal_always_included(self) -> None:
+        hms = headline_moments(FIXTURE)
+        assert any(km.moment_type == "goal" for km in hms)
+
+    def test_no_duplicate_window(self) -> None:
+        # e10 (bin 1, score 0.432) and e14 (bin 1, score 0.416) share window 1;
+        # only the higher-scored e10 should survive.
+        hms = headline_moments(FIXTURE)
+        non_goals = [km for km in hms if km.moment_type != "goal"]
+        windows = [km.match_clock_s // 180 for km in non_goals]
+        assert len(windows) == len(set(windows))
+
+    def test_lower_score_sibling_deduped(self) -> None:
+        hms = headline_moments(FIXTURE)
+        ids = {km.event_id for km in hms}
+        assert "e10" in ids     # higher score wins window 1
+        assert "e14" not in ids # deduped
+
+    def test_sorted_by_clock(self) -> None:
+        hms = headline_moments(FIXTURE)
+        clocks = [km.match_clock_s for km in hms]
+        assert clocks == sorted(clocks)
+
+
+# ===========================================================================
+# headline_moments – seeded parametrized tests (seeds 1-10)
+# ===========================================================================
+
+_events_cache: dict[int, list[MatchEvent]] = {}
+
+
+def _seed_events(seed: int) -> list[MatchEvent]:
+    if seed not in _events_cache:
+        from simulator.engine import MatchEngine
+        from simulator.reference_data import build_players, build_teams
+
+        teams = {t.team_id: t for t in build_teams()}
+        players = build_players(seed)
+        engine = MatchEngine(
+            home_team=teams["T01"],
+            away_team=teams["T02"],
+            players=players,
+            seed=seed,
+            match_id=f"match_s{seed}_T01_T02",
+            scenario_id="live",
+        )
+        evs, _ = engine.run()
+        _events_cache[seed] = evs
+    return _events_cache[seed]
+
+
+@pytest.mark.parametrize("seed", range(1, 11))
+def test_headline_count_in_range(seed: int) -> None:
+    """headline_moments returns 8–12 moments per match."""
+    hms = headline_moments(_seed_events(seed))
+    assert 8 <= len(hms) <= 12, f"seed {seed}: {len(hms)} headline moments"
+
+
+@pytest.mark.parametrize("seed", range(1, 11))
+def test_headline_includes_all_goals(seed: int) -> None:
+    """All goal candidates must appear in headline_moments."""
+    evs = _seed_events(seed)
+    goal_ids = {k.event_id for k in key_moments(evs) if k.moment_type == "goal"}
+    hm_ids = {k.event_id for k in headline_moments(evs)}
+    assert goal_ids <= hm_ids, f"seed {seed}: goals missing from headlines: {goal_ids - hm_ids}"
+
+
+@pytest.mark.parametrize("seed", range(1, 11))
+def test_headline_no_two_non_goals_same_window(seed: int) -> None:
+    """No two non-goal headline moments share the same 180-second window."""
+    hms = headline_moments(_seed_events(seed))
+    non_goals = [km for km in hms if km.moment_type != "goal"]
+    windows = [km.match_clock_s // 180 for km in non_goals]
+    dupes = [(km.moment_type, km.match_clock_s) for km in non_goals]
+    assert len(windows) == len(set(windows)), f"seed {seed}: duplicate windows in {dupes}"
+
+
+@pytest.mark.parametrize("seed", range(1, 11))
+def test_headline_no_swing_before_minute_8(seed: int) -> None:
+    """No momentum_swing headline moment before minute 8."""
+    hms = headline_moments(_seed_events(seed))
+    early_swings = [
+        km for km in hms if km.moment_type == "momentum_swing" and km.match_clock_s < 480
+    ]
+    assert not early_swings, (
+        f"seed {seed}: swing before min 8 at clocks {[km.match_clock_s for km in early_swings]}"
+    )

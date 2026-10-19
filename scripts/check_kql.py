@@ -136,6 +136,21 @@ def _check_key_moments(kql_rows: list[dict], py_rows) -> list[str]:  # type: ign
     return failures
 
 
+def _check_headline_moments(kql_rows: list[dict], py_rows) -> list[str]:  # type: ignore[type-arg]
+    failures: list[str] = []
+    kql_count = len(kql_rows)
+    py_count = len(py_rows)
+    if kql_count != py_count:
+        failures.append(f"headline_moments total: KQL={kql_count} vs Python={py_count}")
+    # Verify all Python goals appear in KQL output
+    py_goal_ids = {k.event_id for k in py_rows if k.moment_type == "goal"}
+    kql_goal_ids = {r["event_id"] for r in kql_rows if r.get("moment_type") == "goal"}
+    missing = py_goal_ids - kql_goal_ids
+    if missing:
+        failures.append(f"headline_moments: goals missing in KQL output: {missing}")
+    return failures
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -164,7 +179,13 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     # --- Python reference -------------------------------------------------
-    from analytics.metrics import key_moments, match_stats, momentum, pressure_index
+    from analytics.metrics import (
+        headline_moments,
+        key_moments,
+        match_stats,
+        momentum,
+        pressure_index,
+    )
     from simulator.engine import MatchEngine
     from simulator.reference_data import build_players, build_teams
 
@@ -180,27 +201,30 @@ def main(argv: list[str] | None = None) -> int:
     )
     events, _ = engine.run()
 
-    py_stats    = match_stats(events)
-    py_momentum = momentum(events)
-    py_pressure = pressure_index(events)
-    py_moments  = key_moments(events)
+    py_stats     = match_stats(events)
+    py_momentum  = momentum(events)
+    py_pressure  = pressure_index(events)
+    py_moments   = key_moments(events)
+    py_headlines = headline_moments(events)
 
     # --- KQL queries -------------------------------------------------------
     client = _kusto_client(cluster_uri)
     mid = args.match_id
 
-    kql_stats    = _run_kql(client, database, f'MatchStats("{mid}")')
-    kql_momentum = _run_kql(client, database, f'Momentum("{mid}")')
-    kql_pressure = _run_kql(client, database, f'PressureIndex("{mid}")')
-    kql_moments  = _run_kql(client, database, f'KeyMoments("{mid}")')
+    kql_stats     = _run_kql(client, database, f'MatchStats("{mid}")')
+    kql_momentum  = _run_kql(client, database, f'Momentum("{mid}")')
+    kql_pressure  = _run_kql(client, database, f'PressureIndex("{mid}")')
+    kql_moments   = _run_kql(client, database, f'KeyMoments("{mid}")')
+    kql_headlines = _run_kql(client, database, f'HeadlineMoments("{mid}")')
 
     # --- Comparison --------------------------------------------------------
     all_failures: list[str] = []
     checks = [
-        ("match_stats",   _check_match_stats(kql_stats,   py_stats)),
-        ("momentum",      _check_momentum(kql_momentum,   py_momentum)),
-        ("pressure_index",_check_pressure(kql_pressure,   py_pressure)),
-        ("key_moments",   _check_key_moments(kql_moments, py_moments)),
+        ("match_stats",      _check_match_stats(kql_stats,        py_stats)),
+        ("momentum",         _check_momentum(kql_momentum,        py_momentum)),
+        ("pressure_index",   _check_pressure(kql_pressure,        py_pressure)),
+        ("key_moments",      _check_key_moments(kql_moments,      py_moments)),
+        ("headline_moments", _check_headline_moments(kql_headlines, py_headlines)),
     ]
 
     for name, failures in checks:

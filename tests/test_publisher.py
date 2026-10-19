@@ -130,7 +130,6 @@ def test_dry_run_event_time_offsets_grow_with_clock(capsys: pytest.CaptureFixtur
 
     t_before = datetime.now(UTC)
     run_publisher(seed=7, home_id="T01", away_id="T02", speed=0.0, dry_run=True)
-    t_after = datetime.now(UTC)
     out = capsys.readouterr().out
 
     lines = out.splitlines()
