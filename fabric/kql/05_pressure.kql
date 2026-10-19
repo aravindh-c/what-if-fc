@@ -1,0 +1,36 @@
+// PressureIndex(p_match_id) – per-minute rolling 5-minute pressure count per team.
+//
+// Definitions mirror analytics.metrics.pressure_index() exactly:
+//   counted events = pressure + tackle + interception by a team where x < 52.5
+//   Coordinate rule: x,y are in the possessing team's frame (attacking towards
+//   x=105), so x < 52.5 means the defending team is pressing in the possessing
+//   team's defensive half (a high-press / compact defensive shape).
+//   pressure_index = sum of counted events in the rolling 5-minute window
+//                    divided by the window size (minutes with data, clamped ≥ 1).
+//
+// Note: same gap caveat as Momentum() – minutes with zero pressure events are
+// absent from the KQL output but present (as 0.0) in the Python reference.
+
+.create-or-alter function with (folder="whatif") PressureIndex(p_match_id:string) {
+    // Step 1: pressure actions per (minute, team) where x < 52.5
+    let presses = EventsClean()
+        | where match_id == p_match_id
+        | where event_type in ("pressure", "tackle", "interception")
+        | where x < 52.5
+        | summarize press_count = count() by minute, team_id;
+    // Step 2: rolling 5-minute sum and window size via self-join
+    let rolling = presses
+        | join kind=inner presses on team_id
+        | where minute1 between ((minute - 4) .. minute)
+        | summarize
+            rolling_sum  = sum(press_count1),
+            window_size  = dcount(minute1)
+          by minute, team_id;
+    // Step 3: pressure_index = rolling_sum / window_size
+    rolling
+    | extend pressure_index = round(todouble(rolling_sum) / todouble(window_size), 3)
+    | project minute, team_id, pressure_index
+    | order by minute asc, team_id asc
+}
+
+// Example: PressureIndex("match_s7_T01_T02")

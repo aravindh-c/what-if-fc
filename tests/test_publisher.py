@@ -12,7 +12,7 @@ import json
 
 import pytest
 
-from simulator.publisher import _parse_cs, run_publisher, sleep_duration
+from simulator.publisher import _event_time, _parse_cs, run_publisher, sleep_duration
 
 # ---------------------------------------------------------------------------
 # sleep_duration
@@ -104,6 +104,69 @@ def test_dry_run_reports_total_count(capsys: pytest.CaptureFixture) -> None:
             count = int(line.split(":")[-1].strip())
             assert count > 100, f"suspiciously low event count: {count}"
             break
+
+
+def test_event_time_max_speed_uses_clock_as_seconds() -> None:
+    """For max speed (speed=0), effective speed=1, so offset = match_clock_s seconds."""
+    from datetime import UTC, datetime, timedelta
+
+    run_start = datetime(2026, 1, 1, 12, 0, 0, tzinfo=UTC)
+    t = _event_time(run_start, match_clock_s=600, speed=0.0)
+    assert t == run_start + timedelta(seconds=600)
+
+
+def test_event_time_speed_10_scales_offset() -> None:
+    """For speed=10, offset = match_clock_s / 10 real seconds."""
+    from datetime import UTC, datetime, timedelta
+
+    run_start = datetime(2026, 1, 1, 12, 0, 0, tzinfo=UTC)
+    t = _event_time(run_start, match_clock_s=600, speed=10.0)
+    assert t == run_start + timedelta(seconds=60)
+
+
+def test_dry_run_event_time_offsets_grow_with_clock(capsys: pytest.CaptureFixture) -> None:
+    """Events' timestamps grow with match_clock_s (first 3 events)."""
+    from datetime import UTC, datetime
+
+    t_before = datetime.now(UTC)
+    run_publisher(seed=7, home_id="T01", away_id="T02", speed=0.0, dry_run=True)
+    t_after = datetime.now(UTC)
+    out = capsys.readouterr().out
+
+    lines = out.splitlines()
+    blocks: list[str] = []
+    block: list[str] = []
+    in_block = False
+    for line in lines:
+        if line.strip() == "{":
+            in_block = True
+            block = [line]
+        elif in_block:
+            block.append(line)
+            if line.strip() == "}":
+                blocks.append("\n".join(block))
+                in_block = False
+
+    assert len(blocks) == 3
+    import json
+
+    parsed = [json.loads(b) for b in blocks]
+    clocks = [p["match_clock_s"] for p in parsed]
+    times = [datetime.fromisoformat(p["event_time"].replace("Z", "+00:00")) for p in parsed]
+
+    # Offsets must be non-decreasing
+    for i in range(1, len(times)):
+        assert times[i] >= times[i - 1]
+
+    # Clock delta and time delta must agree: dt = dc seconds (speed=max → effective=1)
+    for i in range(1, len(times)):
+        expected_delta = clocks[i] - clocks[i - 1]
+        actual_delta = (times[i] - times[i - 1]).total_seconds()
+        assert abs(actual_delta - expected_delta) < 0.5
+
+    # run_start is set inside run_publisher after engine.run(), so it falls between
+    # t_before and t_after; times[0] = run_start + clock[0] which may be nonzero.
+    assert times[0] >= t_before
 
 
 def test_dry_run_does_not_import_eventhub(monkeypatch: pytest.MonkeyPatch) -> None:

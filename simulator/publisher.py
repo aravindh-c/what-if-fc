@@ -17,7 +17,7 @@ from __future__ import annotations
 import argparse
 import sys
 import time
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from dotenv import load_dotenv
 
@@ -95,6 +95,20 @@ def _build_engine(seed: int, home_id: str, away_id: str):  # type: ignore[return
 # Publisher
 # ---------------------------------------------------------------------------
 
+def _event_time(run_start: datetime, match_clock_s: int, speed: float) -> datetime:
+    """Timestamp for one event.
+
+    event_time = run_start + match_clock_s / effective_speed
+    where effective_speed = speed if speed > 0 else 1  (max mode maps to 1×).
+
+    Coordinate rule: x,y in the frame of the team IN POSSESSION (attacking
+    towards x=105). Defensive events use the possessing team's frame, so
+    "opponent half" for the defending team means x < 52.5.
+    """
+    effective = speed if speed > 0.0 else 1.0
+    return run_start + timedelta(seconds=match_clock_s / effective)
+
+
 def run_publisher(
     seed: int,
     home_id: str,
@@ -106,12 +120,14 @@ def run_publisher(
     events, _ = engine.run()
     # events is list[MatchEvent]; snapshots are separate and not sent here
 
-    now_utc = datetime.now(UTC)
+    run_start = datetime.now(UTC)
 
     if dry_run:
         print("=== DRY RUN – first 3 messages ===")
         for ev in events[:3]:
-            payload = ev.model_copy(update={"event_time": now_utc})
+            payload = ev.model_copy(
+                update={"event_time": _event_time(run_start, ev.match_clock_s, speed)}
+            )
             print(payload.model_dump_json(indent=2))
         print(f"\nTotal events that would be sent: {len(events)}")
         return
@@ -140,7 +156,9 @@ def run_publisher(
         batch_count = 0
 
         for i, ev in enumerate(events):
-            payload = ev.model_copy(update={"event_time": datetime.now(UTC)})
+            payload = ev.model_copy(
+                update={"event_time": _event_time(run_start, ev.match_clock_s, speed)}
+            )
             data = EventData(payload.model_dump_json())
 
             try:

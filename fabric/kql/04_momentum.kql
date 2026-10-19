@@ -1,0 +1,41 @@
+// Momentum(p_match_id) – per-minute rolling 5-minute share of attacking actions.
+//
+// Definitions mirror analytics.metrics.momentum() exactly:
+//   attacking action = pass/carry/shot with x >= 70.0; shots weight 3, others 1
+//   rolling window   = current minute and the 4 preceding minutes
+//   share            = team's weighted count / total; 0.5 each when total is zero
+//
+// Coordinate rule: x,y in the possessing team's frame (attacking towards x=105),
+// so x >= 70 is the final third from the possessing team's perspective.
+//
+// Note: rows are only produced for minutes that have at least one attacking action
+// in the data.  Gaps (minutes with zero attacks by both teams) are omitted, which
+// differs from the Python reference that fills every minute 0..max_minute.
+// The Python and KQL results agree on every minute that appears in both outputs.
+
+.create-or-alter function with (folder="whatif") Momentum(p_match_id:string) {
+    // Step 1: weighted attacking actions per (minute, team)
+    let attacks = EventsClean()
+        | where match_id == p_match_id
+        | where event_type in ("pass", "carry", "shot") and x >= 70.0
+        | extend w = iff(event_type == "shot", 3, 1)
+        | summarize pts = sum(w) by minute, team_id;
+    // Step 2: rolling 5-minute sum via self-join (minute1 in [minute-4 .. minute])
+    let rolling = attacks
+        | join kind=inner attacks on team_id
+        | where minute1 between ((minute - 4) .. minute)
+        | summarize rolling_pts = sum(pts1) by minute, team_id;
+    // Step 3: total per minute for share denominator
+    let totals = rolling
+        | summarize total_pts = sum(rolling_pts) by minute;
+    // Step 4: compute share
+    rolling
+    | join kind=inner totals on minute
+    | extend share = iff(total_pts > 0,
+                         todouble(rolling_pts) / todouble(total_pts),
+                         0.5)
+    | project minute, team_id, share
+    | order by minute asc, team_id asc
+}
+
+// Example: Momentum("match_s7_T01_T02")

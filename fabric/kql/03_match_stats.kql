@@ -1,0 +1,42 @@
+// MatchStats(p_match_id) – per-team passes, completion %, shots, goals, possession proxy.
+//
+// Definitions mirror analytics.metrics.match_stats() exactly:
+//   passes            = count of pass events
+//   completed_passes  = count of pass events with outcome == "complete"
+//   completion_pct    = round(100.0 * completed_passes / passes, 1)
+//   shots             = count of shot events (separate from goal events)
+//   goals             = count of goal events
+//   possession_proxy  = share of on-ball events (pass, carry, reception, shot) per team
+//
+// Coordinate rule: x,y in the possessing team's frame (x=105 is their goal).
+
+.create-or-alter function with (folder="whatif") MatchStats(p_match_id:string) {
+    let total_poss = toscalar(
+        EventsClean()
+        | where match_id == p_match_id
+            and event_type in ("pass", "carry", "reception", "shot")
+        | count
+    );
+    EventsClean()
+    | where match_id == p_match_id
+    | where isnotempty(team_id)
+    | summarize
+        passes            = countif(event_type == "pass"),
+        completed_passes  = countif(event_type == "pass" and outcome == "complete"),
+        shots             = countif(event_type == "shot"),
+        goals             = countif(event_type == "goal"),
+        possession_events = countif(event_type in ("pass", "carry", "reception", "shot"))
+      by team_id
+    | extend
+        completion_pct       = iff(passes > 0,
+                                   round(100.0 * completed_passes / passes, 1),
+                                   0.0),
+        possession_proxy_pct = iff(total_poss > 0,
+                                   round(100.0 * possession_events / total_poss, 1),
+                                   0.0)
+    | project team_id, passes, completed_passes, completion_pct,
+              shots, goals, possession_proxy_pct
+    | order by team_id asc
+}
+
+// Example: MatchStats("match_s7_T01_T02")

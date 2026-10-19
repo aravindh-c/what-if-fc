@@ -1,0 +1,83 @@
+// KeyMoments(p_match_id) – detect the four key moment types.
+//
+// Moment types and trigger conditions (mirror analytics.metrics.key_moments()):
+//
+//   goal
+//     event_type == "goal"
+//     value = 1.0
+//
+//   high_pressure_final_third_pass
+//     event_type == "pass"
+//     x >= 70  (final third in possessing team's frame)
+//     pressure_level >= 0.5
+//     snapshot_id is not null
+//     value = pressure_level
+//
+//   final_third_turnover
+//     event_type in ("tackle","interception") AND outcome == "won"
+//     x >= 70  (in the possessing team's frame at the time of the turnover)
+//     value = x
+//
+//   momentum_swing
+//     Computed from Momentum(): first minute where the rolling-window leader
+//     changes and the new leader's share >= 0.60.
+//     value = new leader's share
+//
+// Coordinate rule: x,y in the possessing team's frame (attacking towards x=105).
+
+.create-or-alter function with (folder="whatif") KeyMoments(p_match_id:string) {
+    // ── Direct event triggers ──────────────────────────────────────────────
+    let direct = EventsClean()
+        | where match_id == p_match_id and isnotempty(team_id)
+        | extend moment_type = case(
+            event_type == "goal",
+                "goal",
+            event_type == "pass" and x >= 70.0
+                and pressure_level >= 0.5 and isnotempty(snapshot_id),
+                "high_pressure_final_third_pass",
+            event_type in ("tackle","interception")
+                and outcome == "won" and x >= 70.0,
+                "final_third_turnover",
+            ""
+        )
+        | where isnotempty(moment_type)
+        | extend
+            moment_id = strcat("km_", event_id),
+            value     = case(
+                moment_type == "goal",                           1.0,
+                moment_type == "high_pressure_final_third_pass", pressure_level,
+                todouble(x)
+            )
+        | project moment_id, match_id, match_clock_s, moment_type,
+                  team_id, event_id, snapshot_id, value;
+    // ── Momentum swing ────────────────────────────────────────────────────
+    let mom = Momentum(p_match_id)
+        | where share >= 0.60
+        | summarize arg_max(share, team_id) by minute
+        | order by minute asc
+        | extend prev_team = prev(team_id)
+        | where isnotempty(prev_team) and team_id != prev_team
+        | extend clock = minute * 60;
+    // Pick a representative event at the swing minute (first event for the new leader)
+    let swing_events = EventsClean()
+        | where match_id == p_match_id and isnotempty(team_id);
+    let swings = mom
+        | join kind=inner (
+            swing_events
+            | summarize event_id = take_any(event_id),
+                        snapshot_id = take_any(snapshot_id)
+              by minute = match_clock_s / 60, team_id
+          ) on minute, $left.team_id == $right.team_id
+        | extend
+            moment_id = strcat("km_swing_", p_match_id, "_", tostring(clock)),
+            moment_type = "momentum_swing",
+            match_clock_s = clock,
+            value = max_share  // from arg_max
+        | project moment_id, match_id=p_match_id, match_clock_s, moment_type,
+                  team_id, event_id, snapshot_id, value;
+    // ── Union and sort ─────────────────────────────────────────────────────
+    union direct, swings
+    | order by match_clock_s asc
+}
+
+// Example: KeyMoments("match_s7_T01_T02")

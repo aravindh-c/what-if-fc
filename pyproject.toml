@@ -16,6 +16,7 @@ dependencies = [
     "azure-eventhub>=5.11",
     "azure-identity>=1.17",
     "python-dotenv>=1.0",
+    "azure-kusto-data>=4.3",
 ]
 
 [project.optional-dependencies]
