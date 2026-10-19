@@ -189,9 +189,15 @@ def test_ghost_pass_lane_interior_clear(scenarios: list[Scenario]) -> None:
 
 
 def test_complete_pass_receiver_not_contested(scenarios: list[Scenario]) -> None:
-    """For COMPLETE passes no opponent should be within 2.5 m of the receiver."""
+    """For COMPLETE passes (except forced_pass_into_traffic) no opponent within 2.5 m.
+
+    forced_pass_into_traffic is explicitly designed to pass into a marked receiver;
+    test_nearest_defender_to_actual_receiver_within_4m covers that case instead.
+    """
     for s in scenarios:
         if s.actual_pass.outcome != Outcome.COMPLETE:
+            continue
+        if s.scenario_id == "forced_pass_into_traffic":
             continue
         defending = "T02" if s.in_possession == "T01" else "T01"
         pos = {p.player_id: (p.x, p.y) for p in s.snapshot.positions}

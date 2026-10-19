@@ -107,8 +107,8 @@
         "player_id": "T02-P04",
         "team_id": "T02",
         "role": "CB",
-        "x": 83.0,
-        "y": 26.0
+        "x": 77.0,
+        "y": 32.0
       },
       {
         "player_id": "T02-P07",
@@ -190,5 +190,5 @@
     "snapshot_id": "sn_a"
   },
   "expected_ghost_receiver_id": "T01-P08",
-  "why": "T01-P08 is 10 m clear of the nearest defender in advanced space with the overlap already made, while the DM receives possession backwards with no defensive pressure."
+  "why": "T01-P08 is 10 m clear of the nearest defender in advanced space with the overlap already made, while the DM receives possession backwards and T02-P04 has tight marking on the striker."
 }

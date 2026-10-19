@@ -140,7 +140,7 @@ def _build_scenarios() -> list[Scenario]:
         },
         ov2={
             "T02-P03": (83.0, 42.0),   # CB behind the FB → T01-P08 onside
-            "T02-P04": (83.0, 26.0),   # CB
+            "T02-P04": (77.0, 32.0),   # CB tight on the striker
             "T02-P07": (73.0, 56.0),   # FB on the flank, off the overlap lane
             "T02-P11": (57.0, 22.0),   # DM dropped back, off the overlap lane
         },
@@ -172,7 +172,7 @@ def _build_scenarios() -> list[Scenario]:
         },
         ov2={
             "T02-P03": (91.0, 36.0),   # CB 3 m from ST
-            "T02-P04": (88.0, 32.0),   # CB 4 m from ST
+            "T02-P04": (87.0, 34.5),   # CB tight on the ST
             "T02-P08": (86.0, 38.0),   # FB 2.8 m from ST
         },
     )
@@ -267,7 +267,7 @@ def _build_scenarios() -> list[Scenario]:
             why=(
                 "T01-P08 is 10 m clear of the nearest defender in advanced space"
                 " with the overlap already made, while the DM receives possession"
-                " backwards with no defensive pressure."
+                " backwards and T02-P04 has tight marking on the striker."
             ),
         ),
         Scenario(
