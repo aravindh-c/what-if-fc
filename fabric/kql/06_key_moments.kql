@@ -4,92 +4,136 @@
 //
 //   goal
 //     event_type == "goal"
-//     value = 1.0, score = 1.0
+//     value=1.0, score=1.0, ghost_eligible=false
 //
 //   high_pressure_final_third_pass
-//     event_type == "pass"
-//     x >= 80  (final third in possessing team's frame)
-//     pressure_level >= 0.6
-//     snapshot_id is not null
-//     value = pressure_level
-//     score = clamp(0.3 + 0.4*pressure_level + 0.3*(x-80)/25, 0, 1)
+//     event_type == "pass", x >= 80, pressure_level >= 0.6, snapshot_id not null
+//     value=pressure_level
+//     score=clamp(0.3 + 0.4*pressure_level + 0.3*(x-80)/25, 0, 1)
+//     ghost_eligible=true (snapshot always set)
 //
 //   final_third_turnover
-//     event_type in ("tackle","interception") AND outcome == "won"
-//     x >= 80  (in the possessing team's frame at the time of the turnover)
-//     value = x
-//     score = clamp(0.4 + 0.4*(x-80)/25, 0, 1)
+//     event_type in ("tackle","interception") AND outcome == "won", x >= 80
+//     source_event_id: the event_id of the immediately preceding incomplete pass
+//       by the opposing team (if any); snapshot taken from that pass
+//     ghost_eligible = isnotempty(source_event_id) and isnotempty(snapshot_id)
+//     value=x, score=clamp(0.4 + 0.4*(x-80)/25, 0, 1)
 //
 //   momentum_swing
-//     Computed from Momentum(): first minute >= 8 where the rolling-window leader
-//     changes and the new leader's share >= 0.60.
-//     value = new leader's share, score = 0.7
+//     New leader must hold share >= 0.60 for _SWING_CONFIRM_MINS=3 consecutive
+//     minutes (fired at the 3rd minute), minute >= 8, and leader must differ from
+//     the previously confirmed leader.
+//     value=share, score=0.55, ghost_eligible=false
 //
 // Coordinate rule: x,y in the possessing team's frame (attacking towards x=105).
 
 .create-or-alter function with (folder="whatif") KeyMoments(p_match_id:string) {
-    // ── Direct event triggers ──────────────────────────────────────────────
-    let direct = EventsClean()
-        | where match_id == p_match_id and isnotempty(team_id)
+    // ── Helpers ───────────────────────────────────────────────────────────
+    let clean = EventsClean()
+        | where match_id == p_match_id and isnotempty(team_id);
+    // ── Goal and HPFTP ────────────────────────────────────────────────────
+    let direct_simple = clean
         | extend moment_type = case(
             event_type == "goal",
                 "goal",
             event_type == "pass" and x >= 80.0
                 and pressure_level >= 0.6 and isnotempty(snapshot_id),
                 "high_pressure_final_third_pass",
-            event_type in ("tackle","interception")
-                and outcome == "won" and x >= 80.0,
-                "final_third_turnover",
             ""
         )
         | where isnotempty(moment_type)
         | extend
-            moment_id = strcat("km_", event_id),
+            moment_id       = strcat("km_", event_id),
+            source_event_id = "",
+            ghost_eligible  = (moment_type == "high_pressure_final_third_pass"),
             value = case(
-                moment_type == "goal",                           1.0,
-                moment_type == "high_pressure_final_third_pass", pressure_level,
-                todouble(x)
+                moment_type == "goal", 1.0,
+                pressure_level  // hpftp
             ),
             score = case(
                 moment_type == "goal",
                     1.0,
-                moment_type == "high_pressure_final_third_pass",
-                    min_of(1.0, max_of(0.0, 0.3 + 0.4 * pressure_level + 0.3 * ((x - 80.0) / 25.0))),
-                moment_type == "final_third_turnover",
-                    min_of(1.0, max_of(0.0, 0.4 + 0.4 * ((x - 80.0) / 25.0))),
-                0.0
+                // hpftp
+                min_of(1.0, max_of(0.0, 0.3 + 0.4 * pressure_level + 0.3 * ((x - 80.0) / 25.0)))
             )
         | project moment_id, match_id, match_clock_s, moment_type,
-                  team_id, event_id, snapshot_id, value, score;
-    // ── Momentum swing ────────────────────────────────────────────────────
-    // Track all dominant leaders; emit swing only at minute >= 8.
-    let mom = Momentum(p_match_id)
+                  team_id, event_id, snapshot_id, source_event_id, value, score, ghost_eligible;
+    // ── Final-third turnover (with source_event_id from preceding incomplete pass) ──
+    let ftt_base = clean
+        | sort by match_clock_s asc, event_id asc
+        | extend
+            prev_et   = prev(event_type),
+            prev_oc   = prev(outcome),
+            prev_team = prev(team_id),
+            prev_eid  = prev(event_id),
+            prev_snap = prev(snapshot_id)
+        | where event_type in ("tackle","interception")
+              and outcome == "won" and x >= 80.0
+        | extend
+            source_event_id = iff(
+                isnotempty(prev_team)
+                    and prev_et == "pass" and prev_oc == "incomplete"
+                    and prev_team != team_id,
+                prev_eid, ""
+            ),
+            derived_snap = iff(
+                isnotempty(prev_team)
+                    and prev_et == "pass" and prev_oc == "incomplete"
+                    and prev_team != team_id,
+                prev_snap, snapshot_id
+            )
+        | extend ghost_eligible = isnotempty(derived_snap) and isnotempty(source_event_id)
+        | extend
+            moment_id  = strcat("km_", event_id),
+            moment_type = "final_third_turnover",
+            value = todouble(x),
+            score = min_of(1.0, max_of(0.0, 0.4 + 0.4 * ((x - 80.0) / 25.0)))
+        | project moment_id, match_id, match_clock_s, moment_type,
+                  team_id, event_id, snapshot_id=derived_snap,
+                  source_event_id, value, score, ghost_eligible;
+    // ── Momentum swing (3-consecutive-minute confirmation) ────────────────
+    let leaders = Momentum(p_match_id)
         | where share >= 0.60
         | summarize arg_max(share, team_id) by minute
-        | order by minute asc
-        | extend prev_team = prev(team_id)
-        | where minute >= 8 and isnotempty(prev_team) and team_id != prev_team
-        | extend clock = minute * 60;
-    // Pick a representative event at the swing minute (first event for the new leader)
-    let swing_events = EventsClean()
-        | where match_id == p_match_id and isnotempty(team_id);
-    let swings = mom
-        | join kind=inner (
-            swing_events
-            | summarize event_id = take_any(event_id),
-                        snapshot_id = take_any(snapshot_id)
-              by minute = match_clock_s / 60, team_id
-          ) on minute, $left.team_id == $right.team_id
+        | order by minute asc;
+    // Identify minutes where the same leader held for 3 consecutive minutes
+    let three_consec = leaders
         | extend
-            moment_id = strcat("km_swing_", p_match_id, "_", tostring(clock)),
-            moment_type = "momentum_swing",
-            match_clock_s = clock,
-            value = max_share,  // from arg_max
-            score = 0.7
+            p1_team = prev(team_id, 1), p1_min = prev(minute, 1),
+            p2_team = prev(team_id, 2), p2_min = prev(minute, 2),
+            max_share = column_ifexists("max_share", todouble(share))
+        | where
+            isnotempty(p1_team) and team_id == p1_team and minute == p1_min + 1
+            and isnotempty(p2_team) and team_id == p2_team and p1_min == p2_min + 1
+            and minute >= 8;
+    // Fire swing when the confirmed leader differs from the previous confirmed leader
+    let swing_moms = three_consec
+        | order by minute asc
+        | extend prev_confirmed = prev(team_id)
+        | where isnotempty(prev_confirmed) and team_id != prev_confirmed
+        | extend clock = minute * 60;
+    // Representative event: first event for the new leader in a backward search window
+    let swing_reps = clean
+        | summarize event_id = take_any(event_id), snapshot_id = take_any(snapshot_id)
+          by win_min = match_clock_s / 60, team_id;
+    let swings = swing_moms
+        | join kind=leftouter (
+            swing_reps
+          ) on $left.team_id == $right.team_id,
+            $left.minute == $right.win_min
+        | extend
+            moment_id       = strcat("km_swing_", p_match_id, "_", tostring(clock)),
+            moment_type     = "momentum_swing",
+            match_clock_s   = clock,
+            source_event_id = "",
+            ghost_eligible  = false,
+            value           = max_share,
+            score           = 0.55
         | project moment_id, match_id=p_match_id, match_clock_s, moment_type,
-                  team_id, event_id, snapshot_id, value, score;
-    // ── Union and sort ─────────────────────────────────────────────────────
-    union direct, swings
+                  team_id, event_id, snapshot_id,
+                  source_event_id, value, score, ghost_eligible;
+    // ── Union and sort ────────────────────────────────────────────────────
+    union direct_simple, ftt_base, swings
     | order by match_clock_s asc
 }
 

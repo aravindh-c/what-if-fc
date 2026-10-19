@@ -27,7 +27,9 @@ _ROLL_MINS: int = 5          # rolling-window width in minutes
 _HPFTP_X: float = 80.0       # high_pressure_final_third_pass x threshold
 _HPFTP_PRESSURE: float = 0.6 # high_pressure_final_third_pass pressure threshold
 _FTT_X: float = 80.0         # final_third_turnover x threshold
-_SWING_MIN_MINUTE: int = 8   # momentum_swing ignored before this minute
+_SWING_MIN_MINUTE: int = 8    # momentum_swing ignored before this minute
+_SWING_CONFIRM_MINS: int = 3  # consecutive minutes new leader must hold ≥0.60 to confirm
+_SWING_SCORE: float = 0.55    # headline score for a confirmed momentum swing
 
 _POSSESSION_TYPES = frozenset(
     {EventType.PASS, EventType.CARRY, EventType.RECEPTION, EventType.SHOT}
@@ -82,8 +84,12 @@ class KeyMoment:
     team_id: str
     event_id: str
     snapshot_id: str | None
+    # for pass-caused FTT: preceding incomplete pass's event_id (and its snapshot)
+    source_event_id: str | None
     value: float
     score: float  # 0–1 heuristic importance; not a probability
+    # True when snapshot_id is set and moment is a pass or a pass-caused turnover
+    ghost_eligible: bool
 
 
 # ---------------------------------------------------------------------------
@@ -117,7 +123,7 @@ def _km_score(moment_type: str, pressure_level: float, x: float) -> float:
     if moment_type == "goal":
         return 1.0
     if moment_type == "momentum_swing":
-        return 0.7
+        return _SWING_SCORE
     if moment_type == "high_pressure_final_third_pass":
         return min(1.0, max(0.0, 0.3 + 0.4 * pressure_level + 0.3 * ((x - 80.0) / 25.0)))
     if moment_type == "final_third_turnover":
@@ -300,7 +306,7 @@ def key_moments(events: Sequence[MatchEvent]) -> list[KeyMoment]:
     mid = _match_id(evs)
     moments: list[KeyMoment] = []
 
-    for ev in evs:
+    for i, ev in enumerate(evs):
         t = ev.team_id
         if t is None:
             continue
@@ -315,8 +321,10 @@ def key_moments(events: Sequence[MatchEvent]) -> list[KeyMoment]:
                     team_id=t,
                     event_id=ev.event_id,
                     snapshot_id=ev.snapshot_id,
+                    source_event_id=None,
                     value=1.0,
                     score=1.0,
+                    ghost_eligible=False,
                 )
             )
 
@@ -336,8 +344,10 @@ def key_moments(events: Sequence[MatchEvent]) -> list[KeyMoment]:
                     team_id=t,
                     event_id=ev.event_id,
                     snapshot_id=ev.snapshot_id,
+                    source_event_id=None,
                     value=ev.pressure_level,
                     score=_km_score("high_pressure_final_third_pass", ev.pressure_level, ev.x),
+                    ghost_eligible=True,  # snapshot_id always set for HPFTP
                 )
             )
 
@@ -347,6 +357,22 @@ def key_moments(events: Sequence[MatchEvent]) -> list[KeyMoment]:
             and ev.x is not None
             and ev.x >= _FTT_X
         ):
+            # Attach the preceding incomplete pass by the other team when present
+            src_id: str | None = None
+            ftt_snap: str | None = ev.snapshot_id
+            for j in range(i - 1, -1, -1):
+                prev_ev = evs[j]
+                if prev_ev.team_id is None:
+                    continue  # skip team-less events (period_end etc.)
+                if (
+                    prev_ev.event_type == EventType.PASS
+                    and prev_ev.outcome == Outcome.INCOMPLETE
+                    and prev_ev.team_id != t
+                ):
+                    src_id = prev_ev.event_id
+                    ftt_snap = prev_ev.snapshot_id
+                break  # stop at the first event that has a team_id
+            ghost_el = src_id is not None and ftt_snap is not None
             moments.append(
                 KeyMoment(
                     moment_id=f"km_{ev.event_id}",
@@ -355,51 +381,78 @@ def key_moments(events: Sequence[MatchEvent]) -> list[KeyMoment]:
                     moment_type="final_third_turnover",
                     team_id=t,
                     event_id=ev.event_id,
-                    snapshot_id=ev.snapshot_id,
+                    snapshot_id=ftt_snap,
+                    source_event_id=src_id,
                     value=float(ev.x),
                     score=_km_score("final_third_turnover", 0.0, ev.x),
+                    ghost_eligible=ghost_el,
                 )
             )
 
-    # Momentum swing: track the last team to hold >= 0.60 share; fire when it changes.
+    # Momentum swing: new leader must hold >= 0.60 for _SWING_CONFIRM_MINS consecutive
+    # minutes before a swing is fired (at the last confirming minute).
     mom_rows = momentum(evs)
     if mom_rows:
         min_to_rows: dict[int, list[MomentumRow]] = defaultdict(list)
         for row in mom_rows:
             min_to_rows[row.minute].append(row)
 
-        # Index events by minute for picking a representative event_id
+        # Index events by minute (only team-owned events) for picking a representative
         evs_by_minute: dict[int, list[MatchEvent]] = defaultdict(list)
         for ev in evs:
             if ev.team_id is not None:
                 evs_by_minute[ev.match_clock_s // 60].append(ev)
 
-        prev_leader: str | None = None
+        prev_confirmed_leader: str | None = None
+        streak_team: str | None = None
+        streak_count: int = 0
+
         for m in sorted(min_to_rows.keys()):
             best = max(min_to_rows[m], key=lambda r: r.share)
-            if best.share < 0.60:
-                continue  # no dominant leader; keep prev_leader unchanged
-            leader = best.team_id
-            if m >= _SWING_MIN_MINUTE and prev_leader is not None and leader != prev_leader:
-                rep = next(
-                    (e for e in evs_by_minute.get(m, []) if e.team_id == leader),
-                    evs_by_minute.get(m, [None])[0],  # type: ignore[index]
-                )
-                if rep is not None:
-                    moments.append(
-                        KeyMoment(
-                            moment_id=f"km_swing_{mid}_{m * 60}",
-                            match_id=mid,
-                            match_clock_s=m * 60,
-                            moment_type="momentum_swing",
-                            team_id=leader,
-                            event_id=rep.event_id,
-                            snapshot_id=rep.snapshot_id,
-                            value=round(best.share, 3),
-                            score=0.7,
+            cur_leader = best.team_id if best.share >= 0.60 else None
+
+            if cur_leader == streak_team and cur_leader is not None:
+                streak_count += 1
+            else:
+                streak_team = cur_leader
+                streak_count = 1 if cur_leader is not None else 0
+
+            if streak_count == _SWING_CONFIRM_MINS and streak_team is not None:
+                if (
+                    m >= _SWING_MIN_MINUTE
+                    and prev_confirmed_leader is not None
+                    and streak_team != prev_confirmed_leader
+                ):
+                    # Search back up to _ROLL_MINS minutes for a team event to represent
+                    rep: MatchEvent | None = None
+                    for sm in range(m, max(-1, m - _ROLL_MINS), -1):
+                        for e in evs_by_minute.get(sm, []):
+                            if e.team_id == streak_team:
+                                rep = e
+                                break
+                        if rep is not None:
+                            break
+                    if rep is None:
+                        any_evs = evs_by_minute.get(m, [])
+                        rep = any_evs[0] if any_evs else None
+                    if rep is not None:
+                        moments.append(
+                            KeyMoment(
+                                moment_id=f"km_swing_{mid}_{m * 60}",
+                                match_id=mid,
+                                match_clock_s=m * 60,
+                                moment_type="momentum_swing",
+                                team_id=streak_team,
+                                event_id=rep.event_id,
+                                snapshot_id=rep.snapshot_id,
+                                source_event_id=None,
+                                value=round(best.share, 3),
+                                score=_SWING_SCORE,
+                                ghost_eligible=False,
+                            )
                         )
-                    )
-            prev_leader = leader
+                # Always record this team as the confirmed leader (even if no swing fired)
+                prev_confirmed_leader = streak_team
 
     moments.sort(key=lambda km: km.match_clock_s)
     return moments
@@ -410,21 +463,30 @@ def key_moments(events: Sequence[MatchEvent]) -> list[KeyMoment]:
 # ---------------------------------------------------------------------------
 
 
+_SWING_CAP: int = 3          # max momentum_swings kept per headline list
+_GHOST_RESERVE: int = 5      # slots reserved for ghost_eligible moments when supply >= 5
+
+
 def headline_moments(
     events: Sequence[MatchEvent], window_s: int = 180, cap: int = 12
 ) -> list[KeyMoment]:
     """Select the most important key moments for display.
 
-    All goals are always included.  Non-goal candidates are window-deduplicated
-    (best score per bin(match_clock_s, window_s)) and then the top
-    max(0, cap - n_goals) by score are kept.  Ties broken by earlier match_clock_s.
-    Returns moments sorted by match_clock_s.  Mirrors KQL HeadlineMoments().
+    Selection rules (mirrors KQL HeadlineMoments()):
+      1. All goals always included.
+      2. Non-goals are window-deduplicated (best score per bin(match_clock_s, window_s);
+         ties broken by earlier match_clock_s).
+      3. From the deduped survivors, take up to _SWING_CAP (3) momentum_swings by score.
+      4. Fill remaining slots (cap − goals − swings) by score, but when the deduped
+         non-swing pool has ≥ _GHOST_RESERVE ghost_eligible moments, reserve at least
+         _GHOST_RESERVE of those slots for ghost_eligible moments.
+    Returns moments sorted by match_clock_s.
     """
     candidates = key_moments(events)
     goals = [km for km in candidates if km.moment_type == "goal"]
     others = [km for km in candidates if km.moment_type != "goal"]
 
-    # Window-deduplicate: keep highest-score per bin; ties → earlier clock wins
+    # Window-deduplicate across all non-goals
     window_best: dict[int, KeyMoment] = {}
     for km in others:
         win = km.match_clock_s // window_s
@@ -436,10 +498,32 @@ def headline_moments(
         ):
             window_best[win] = km
 
+    # Survivors sorted by score desc (windows already deduplicated)
     survivors = sorted(window_best.values(), key=lambda km: (-km.score, km.match_clock_s))
-    n_slots = max(0, cap - len(goals))
-    selected = survivors[:n_slots]
 
-    result = goals + selected
+    # Take up to _SWING_CAP swings
+    swings = [km for km in survivors if km.moment_type == "momentum_swing"]
+    non_swings = [km for km in survivors if km.moment_type != "momentum_swing"]
+    selected_swings = swings[:_SWING_CAP]
+
+    # Fill remaining slots with ghost-eligible reservation
+    remaining = max(0, cap - len(goals) - len(selected_swings))
+    ghost_pool = [km for km in non_swings if km.ghost_eligible]
+    other_pool = [km for km in non_swings if not km.ghost_eligible]
+
+    if len(ghost_pool) >= _GHOST_RESERVE and remaining > 0:
+        n_forced = min(_GHOST_RESERVE, remaining)
+        forced = ghost_pool[:n_forced]
+        rest = sorted(
+            ghost_pool[n_forced:] + other_pool,
+            key=lambda km: (-km.score, km.match_clock_s),
+        )[: max(0, remaining - n_forced)]
+        selected_rest = forced + rest
+    else:
+        selected_rest = (
+            sorted(ghost_pool + other_pool, key=lambda km: (-km.score, km.match_clock_s))
+        )[:remaining]
+
+    result = goals + selected_swings + selected_rest
     result.sort(key=lambda km: km.match_clock_s)
     return result

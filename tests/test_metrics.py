@@ -303,6 +303,8 @@ class TestKeyMoments:
         assert g.match_clock_s == 75
         assert g.value == 1.0
         assert g.score == pytest.approx(1.0)
+        assert g.ghost_eligible is False
+        assert g.source_event_id is None
 
     def test_high_pressure_final_third_pass(self) -> None:
         kms = key_moments(FIXTURE)
@@ -314,6 +316,8 @@ class TestKeyMoments:
         assert h.value == pytest.approx(0.6)
         # score = clamp(0.3 + 0.4*0.6 + 0.3*(3/25)) = 0.576
         assert h.score == pytest.approx(0.576, abs=0.001)
+        assert h.ghost_eligible is True
+        assert h.source_event_id is None
 
     def test_final_third_turnovers(self) -> None:
         kms = key_moments(FIXTURE)
@@ -329,17 +333,24 @@ class TestKeyMoments:
         assert scores["e10"] == pytest.approx(0.432, abs=0.001)
         # e14 x=81: 0.4 + 0.4*(1/25) = 0.416
         assert scores["e14"] == pytest.approx(0.416, abs=0.001)
+        # In fixture, neither tackle is preceded by an incomplete pass from T01
+        for k in ftts:
+            assert k.ghost_eligible is False
+            assert k.source_event_id is None
 
     def test_momentum_swing_detected(self) -> None:
-        # T01 led at min1-5 (share=1.0); T02 takes over at min8 (share=1.0)
+        # T01 confirms at min3 (no swing, m<8; sets prev_confirmed_leader=T01).
+        # T02 dominates min8-10 → swing confirmed at min10 (3rd consecutive minute).
         kms = key_moments(FIXTURE)
         swings = [k for k in kms if k.moment_type == "momentum_swing"]
         assert len(swings) == 1
         s = swings[0]
         assert s.team_id == "T02"
-        assert s.match_clock_s == 8 * 60
+        assert s.match_clock_s == 10 * 60  # fires at the 3rd consecutive minute (min10)
         assert s.value == pytest.approx(1.0)
-        assert s.score == pytest.approx(0.7)
+        assert s.score == pytest.approx(0.55)
+        assert s.ghost_eligible is False
+        assert s.source_event_id is None
 
     def test_momentum_swing_not_before_min8(self) -> None:
         # Leadership changes before min8 must not produce a swing
@@ -351,7 +362,7 @@ class TestKeyMoments:
                 )
 
     def test_total_key_moment_count(self) -> None:
-        # 1 goal + 1 hpftp + 2 ftt + 1 swing = 5
+        # 1 goal + 1 hpftp + 2 ftt + 1 swing (at min10) = 5
         kms = key_moments(FIXTURE)
         assert len(kms) == 5
 
@@ -519,3 +530,54 @@ def test_headline_no_swing_before_minute_8(seed: int) -> None:
     assert not early_swings, (
         f"seed {seed}: swing before min 8 at clocks {[km.match_clock_s for km in early_swings]}"
     )
+
+
+@pytest.mark.parametrize("seed", range(1, 11))
+def test_headline_swing_cap(seed: int) -> None:
+    """At most 3 momentum_swings per headline list."""
+    hms = headline_moments(_seed_events(seed))
+    n_swings = sum(1 for km in hms if km.moment_type == "momentum_swing")
+    assert n_swings <= 3, f"seed {seed}: {n_swings} swings in headlines"
+
+
+@pytest.mark.parametrize("seed", range(1, 11))
+def test_headline_ghost_eligible_reserved(seed: int) -> None:
+    """When >=5 ghost_eligible candidates survive windowing, headlines include >=5."""
+    evs = _seed_events(seed)
+    candidates = key_moments(evs)
+    hms = headline_moments(evs)
+    # Count ghost_eligible in windowed non-goal survivors
+    others = [km for km in candidates if km.moment_type != "goal"]
+    window_best: dict[int, object] = {}
+    for km in others:
+        win = km.match_clock_s // 180
+        prev = window_best.get(win)
+        if prev is None or km.score > prev.score:  # type: ignore[union-attr]
+            window_best[win] = km
+    n_ghost_supply = sum(1 for km in window_best.values() if km.ghost_eligible)  # type: ignore
+    if n_ghost_supply >= 5:
+        n_ghost_headlines = sum(1 for km in hms if km.ghost_eligible)
+        assert n_ghost_headlines >= 5, (
+            f"seed {seed}: only {n_ghost_headlines} ghost_eligible in headlines "
+            f"({n_ghost_supply} supplied)"
+        )
+
+
+@pytest.mark.parametrize("seed", range(1, 11))
+def test_swing_requires_3_consecutive(seed: int) -> None:
+    """Every momentum_swing in key_moments fired after 3 consecutive minutes of dominance."""
+    evs = _seed_events(seed)
+    kms = key_moments(evs)
+    mom_rows = momentum(evs)
+    share_by = {(r.minute, r.team_id): r.share for r in mom_rows}
+    for km in kms:
+        if km.moment_type != "momentum_swing":
+            continue
+        m = km.match_clock_s // 60
+        t = km.team_id
+        for check_m in [m, m - 1, m - 2]:
+            s = share_by.get((check_m, t), 0.0)
+            assert s >= 0.60, (
+                f"seed {seed}: swing at min {m} for {t} — "
+                f"share at min {check_m} is {s:.3f} < 0.60"
+            )

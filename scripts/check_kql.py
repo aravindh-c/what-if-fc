@@ -133,6 +133,25 @@ def _check_key_moments(kql_rows: list[dict], py_rows) -> list[str]:  # type: ign
             failures.append(
                 f"key_moments {t}: KQL={kql_count} vs Python={py_count}"
             )
+
+    # Spot-check ghost_eligible and source_event_id alignment by event_id
+    kql_by_eid = {r["event_id"]: r for r in kql_rows}
+    for km in py_rows:
+        row = kql_by_eid.get(km.event_id)
+        if row is None:
+            continue
+        kql_ghost = bool(row.get("ghost_eligible", False))
+        if kql_ghost != km.ghost_eligible:
+            failures.append(
+                f"key_moments {km.event_id} ghost_eligible: "
+                f"KQL={kql_ghost} vs Python={km.ghost_eligible}"
+            )
+        kql_src = row.get("source_event_id") or None
+        py_src = km.source_event_id or None
+        if kql_src != py_src:
+            failures.append(
+                f"key_moments {km.event_id} source_event_id: KQL={kql_src!r} vs Python={py_src!r}"
+            )
     return failures
 
 

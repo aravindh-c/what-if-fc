@@ -1,36 +1,54 @@
 // HeadlineMoments(p_match_id) – select the most important key moments for display.
 //
-// Rules (mirror analytics.metrics.headline_moments(window_s=180, cap=12)):
-//   - All goals are always included.
-//   - Non-goal candidates are window-deduplicated:
-//       for each bin(match_clock_s, 180) keep the row with the highest score
-//       (arg_max(score, *); ties are resolved arbitrarily — rare in practice).
-//   - From the survivors, take the top (12 − n_goals) by score descending
-//       (ties broken by earlier match_clock_s).
-//   - Return goals + selected non-goals, sorted by match_clock_s.
+// Selection rules (mirror analytics.metrics.headline_moments()):
+//   1. All goals always included.
+//   2. Non-goals window-deduplicated (arg_max(score,*) per bin(match_clock_s,180)).
+//   3. Up to 3 momentum_swings kept (highest score).
+//   4. Fill remaining slots (cap 12 − goals − swings) by score, reserving at least
+//      5 slots for ghost_eligible moments when ≥5 exist in the deduped pool.
 //
 // Coordinate rule: x,y in the possessing team's frame (attacking towards x=105).
 
 .create-or-alter function with (folder="whatif") HeadlineMoments(p_match_id:string) {
     let candidates = KeyMoments(p_match_id);
-    let goals = candidates
-        | where moment_type == "goal";
+    let goals = candidates | where moment_type == "goal";
     let n_goals = toscalar(goals | count);
-    let n_slots = max_of(0, 12 - n_goals);
-    // Window-deduplicate non-goals: keep best score per 180-second bin
+    // Window-deduplicate all non-goals
     let deduped = candidates
         | where moment_type != "goal"
         | extend win = match_clock_s / 180
         | summarize arg_max(score, *) by win
         | project-away win;
-    // Rank survivors by score desc, clock asc; keep top n_slots
-    let selected = deduped
+    // Take up to 3 swings
+    let swing_pool = deduped | where moment_type == "momentum_swing"
         | sort by score desc, match_clock_s asc
         | extend rn = row_number()
-        | where rn <= n_slots
+        | where rn <= 3
+        | project-away rn;
+    let n_swings = toscalar(swing_pool | count);
+    let remaining = max_of(0, 12 - n_goals - n_swings);
+    // Ghost-eligible reservation: if ≥5 ghost_eligible survivors, force 5 slots
+    let non_swing_pool = deduped
+        | where moment_type != "momentum_swing"
+        | sort by score desc, match_clock_s asc;
+    let n_ghost_supply = toscalar(non_swing_pool | where ghost_eligible == true | count);
+    let n_forced_ghost = iff(n_ghost_supply >= 5, min_of(5, remaining), 0);
+    let forced_ghost = non_swing_pool
+        | where ghost_eligible == true
+        | sort by score desc, match_clock_s asc
+        | extend rn = row_number()
+        | where rn <= n_forced_ghost
+        | project-away rn;
+    let rest_slots = max_of(0, remaining - n_forced_ghost);
+    let rest_pool = non_swing_pool
+        | where not(ghost_eligible == true and row_number() <= n_forced_ghost)  // approximate
+        | sort by score desc, match_clock_s asc
+        | extend rn = row_number()
+        | where rn <= rest_slots
         | project-away rn;
     // Combine and sort
-    union goals, selected
+    union goals, swing_pool, forced_ghost, rest_pool
+    | summarize arg_max(match_clock_s, *) by event_id  // deduplicate across unions
     | order by match_clock_s asc
 }
 
