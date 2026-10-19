@@ -1,34 +1,49 @@
-// PressureIndex(p_match_id) – per-minute rolling 5-minute pressure count per team.
+// PressureIndex(p_match_id) – per-minute rolling 5-minute pressure average per team.
 //
 // Definitions mirror analytics.metrics.pressure_index() exactly:
-//   counted events = pressure + tackle + interception by a team where x < 52.5
-//   Coordinate rule: x,y are in the possessing team's frame (attacking towards
-//   x=105), so x < 52.5 means the defending team is pressing in the possessing
-//   team's defensive half (a high-press / compact defensive shape).
-//   pressure_index = sum of counted events in the rolling 5-minute window
-//                    divided by the window size (minutes with data, clamped ≥ 1).
+//   counted events = pressure + tackle + interception where x < 52.5
+//   pressure_index = rolling_sum / window_size
+//   window_size    = min(minute + 1, 5)  — always 1..5, independent of data density
 //
-// Note: same gap caveat as Momentum() – minutes with zero pressure events are
-// absent from the KQL output but present (as 0.0) in the Python reference.
+// Dense-grid note: uses make-series from minute 0 to max_minute (default=0) so
+// every minute appears even when a team has zero pressure events that minute.
+// series_fir with a uniform 5-element trailing filter [1,1,1,1,1] computes the
+// rolling sum; dividing by min(minute+1, 5) (not by minutes-with-data) matches the
+// Python reference exactly.  A dummy row at minute 0 with count=0 is unioned per
+// team before make-series to guarantee both teams always appear.
+//
+// Coordinate rule: x,y in the possessing team's frame (attacking towards x=105);
+// x < 52.5 means the pressing team is working inside the possessing team's own half.
 
 .create-or-alter function with (folder="whatif") PressureIndex(p_match_id:string) {
-    // Step 1: pressure actions per (minute, team) where x < 52.5
-    let presses = EventsClean()
+    let max_min = toscalar(
+        EventsClean()
         | where match_id == p_match_id
-        | where event_type in ("pressure", "tackle", "interception")
-        | where x < 52.5
-        | summarize press_count = count() by minute, team_id;
-    // Step 2: rolling 5-minute sum and window size via self-join
+        | summarize max(match_clock_s / 60)
+    );
+    // All team_ids for this match (to guarantee both appear in the dense series)
+    let all_teams = EventsClean()
+        | where match_id == p_match_id and isnotempty(team_id)
+        | distinct team_id;
+    // Pressure actions per (minute, team_id)
+    // Union with a zero-count dummy at minute 0 per team so every team gets a series row
+    let presses = EventsClean()
+        | where match_id == p_match_id and isnotempty(team_id)
+        | where event_type in ("pressure","tackle","interception") and x < 52.5
+        | summarize press_cnt = count() by minute = match_clock_s / 60, team_id
+        | union (all_teams | extend minute = 0L, press_cnt = 0L)
+        | summarize press_cnt = sum(press_cnt) by minute, team_id;
+    // Dense minute series per team; 5-minute trailing sum via series_fir
     let rolling = presses
-        | join kind=inner presses on team_id
-        | where minute1 between ((minute - 4) .. minute)
-        | summarize
-            rolling_sum  = sum(press_count1),
-            window_size  = dcount(minute1)
-          by minute, team_id;
-    // Step 3: pressure_index = rolling_sum / window_size
+        | make-series press_sum = sum(press_cnt) default=0
+          on minute from 0 to max_min step 1 by team_id
+        | extend rolling_sum = series_fir(press_sum, dynamic([1.0, 1.0, 1.0, 1.0, 1.0]), false, false)
+        | project team_id, minute, rolling_sum;
+    // Expand and compute pressure_index = rolling_sum / window_size
     rolling
-    | extend pressure_index = round(todouble(rolling_sum) / todouble(window_size), 3)
+    | mv-expand minute to typeof(long), rolling_sum to typeof(double)
+    | extend window_size = todouble(min_of(minute + 1, 5))
+    | extend pressure_index = round(rolling_sum / window_size, 3)
     | project minute, team_id, pressure_index
     | order by minute asc, team_id asc
 }

@@ -5,35 +5,49 @@
 //   rolling window   = current minute and the 4 preceding minutes
 //   share            = team's weighted count / total; 0.5 each when total is zero
 //
-// Coordinate rule: x,y in the possessing team's frame (attacking towards x=105),
-// so x >= 70 is the final third from the possessing team's perspective.
+// Dense-grid note: uses make-series from minute 0 to max_minute (default=0.0) so
+// every minute appears even when a team has no attacking actions in that minute.
+// series_fir with a uniform 5-element trailing filter [1,1,1,1,1] computes the
+// rolling sum; out-of-range positions are zero-padded, so the window naturally
+// shrinks for minutes 0–3 (matching Python's max(0, m-4)..m range).
+// A dummy row at minute 0 with pts=0.0 is unioned per team before make-series to
+// ensure both teams always appear, even if one has no attacking actions at all.
 //
-// Note: rows are only produced for minutes that have at least one attacking action
-// in the data.  Gaps (minutes with zero attacks by both teams) are omitted, which
-// differs from the Python reference that fills every minute 0..max_minute.
-// The Python and KQL results agree on every minute that appears in both outputs.
+// Coordinate rule: x,y in the possessing team's frame (attacking towards x=105).
 
 .create-or-alter function with (folder="whatif") Momentum(p_match_id:string) {
-    // Step 1: weighted attacking actions per (minute, team)
-    let attacks = EventsClean()
+    let max_min = toscalar(
+        EventsClean()
         | where match_id == p_match_id
-        | where event_type in ("pass", "carry", "shot") and x >= 70.0
-        | extend w = iff(event_type == "shot", 3, 1)
-        | summarize pts = sum(w) by minute, team_id;
-    // Step 2: rolling 5-minute sum via self-join (minute1 in [minute-4 .. minute])
+        | summarize max(match_clock_s / 60)
+    );
+    // All team_ids for this match (to guarantee both appear in the dense series)
+    let all_teams = EventsClean()
+        | where match_id == p_match_id and isnotempty(team_id)
+        | distinct team_id;
+    // Weighted attacking actions per (minute, team_id)
+    // Union with a zero-weight dummy at minute 0 per team so every team gets a series row
+    let attacks = EventsClean()
+        | where match_id == p_match_id and isnotempty(team_id)
+        | where event_type in ("pass","carry","shot") and x >= 70.0
+        | extend w = iff(event_type == "shot", 3.0, 1.0)
+        | summarize pts = sum(w) by minute = match_clock_s / 60, team_id
+        | union (all_teams | extend minute = 0L, pts = 0.0)
+        | summarize pts = sum(pts) by minute, team_id;
+    // Dense minute series per team; 5-minute trailing sum via series_fir
     let rolling = attacks
-        | join kind=inner attacks on team_id
-        | where minute1 between ((minute - 4) .. minute)
-        | summarize rolling_pts = sum(pts1) by minute, team_id;
-    // Step 3: total per minute for share denominator
-    let totals = rolling
-        | summarize total_pts = sum(rolling_pts) by minute;
-    // Step 4: compute share
-    rolling
+        | make-series pts = sum(pts) default=0.0
+          on minute from 0 to max_min step 1 by team_id
+        | extend rolling_pts = series_fir(pts, dynamic([1.0, 1.0, 1.0, 1.0, 1.0]), false, false)
+        | project team_id, minute, rolling_pts;
+    // mv-expand arrays to one row per (minute, team), then compute share
+    let expanded = rolling
+        | mv-expand minute to typeof(long), rolling_pts to typeof(double);
+    let totals = expanded
+        | summarize total = sum(rolling_pts) by minute;
+    expanded
     | join kind=inner totals on minute
-    | extend share = iff(total_pts > 0,
-                         todouble(rolling_pts) / todouble(total_pts),
-                         0.5)
+    | extend share = iff(total > 0.0, rolling_pts / total, 0.5)
     | project minute, team_id, share
     | order by minute asc, team_id asc
 }
