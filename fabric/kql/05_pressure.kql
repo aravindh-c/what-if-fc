@@ -31,12 +31,12 @@
         | where match_id == p_match_id and isnotempty(team_id)
         | where event_type in ("pressure","tackle","interception") and x < 52.5
         | summarize press_cnt = count() by minute = match_clock_s / 60, team_id
-        | union (all_teams | extend minute = 0L, press_cnt = 0L)
+        | union (all_teams | extend minute = long(0), press_cnt = long(0))
         | summarize press_cnt = sum(press_cnt) by minute, team_id;
     // Dense minute series per team; 5-minute trailing sum via series_fir
     let rolling = presses
         | make-series press_sum = sum(press_cnt) default=0
-          on minute from 0 to max_min step 1 by team_id
+          on minute from 0 to max_min + 1 step 1 by team_id
         | extend rolling_sum = series_fir(press_sum, dynamic([1.0, 1.0, 1.0, 1.0, 1.0]), false, false)
         | project team_id, minute, rolling_sum;
     // Expand and compute pressure_index = rolling_sum / window_size
