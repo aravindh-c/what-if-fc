@@ -1,0 +1,13 @@
+flowchart TD
+  investigator["investigator (Start)"];
+  director["director"];
+  template["template"];
+  validator["validator"];
+  overlay["overlay"];
+  investigator --> director;
+  investigator --> template;
+  director --> validator;
+  director --> template;
+  validator --> overlay;
+  validator --> director;
+  validator --> template;
