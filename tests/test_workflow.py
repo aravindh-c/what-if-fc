@@ -422,3 +422,40 @@ def test_overlay_valid_schema_after_template_fallback() -> None:
     raw = overlay.model_dump()
     overlay2 = Overlay.model_validate(raw)
     assert overlay2.overlay_id == overlay.overlay_id
+
+
+# ---------------------------------------------------------------------------
+# WorkflowBuilder graph tests
+# ---------------------------------------------------------------------------
+
+
+def test_retry_visits_director_twice() -> None:
+    """Validation fail on attempt 1 causes Director to be called twice."""
+    packet = _build_packet()
+    twin = _build_twin()
+    roster = _build_roster()
+
+    investigator = _mock_agent([_good_findings()])
+    director = _mock_agent([_bad_director_text(), _good_director_text(packet)])
+
+    overlay, log = asyncio.run(
+        run_moment_workflow(
+            packet, twin, roster, _null_kql(), None,
+            _agents=(investigator, director),
+        )
+    )
+    assert director.run.call_count == 2
+    assert overlay.narrative_source == NarrativeSource.AGENT
+    assert log["attempts"] == 2
+
+
+def test_graph_has_five_executors() -> None:
+    """WorkflowBuilder graph contains the five expected executor nodes."""
+    from agent_framework import WorkflowViz  # noqa: PLC0415
+
+    from agents.workflow import _build_workflow  # noqa: PLC0415
+
+    workflow = _build_workflow(client=None, kql=None, timeout_s=1.0)
+    mermaid = WorkflowViz(workflow).to_mermaid()
+    for exe_id in ("investigator", "director", "validator", "overlay", "template"):
+        assert exe_id in mermaid, f"Executor {exe_id!r} not found in workflow diagram"

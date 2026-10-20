@@ -1,9 +1,7 @@
 """Two-agent workflow: Investigator → Director → Validator with retry and fallback.
 
-WorkflowBuilder (the agent framework graph API) was considered but ruled out:
-the retry sends a structurally different message to the Director on attempt 2
-(adds previous text + error list), and the template fallback is a wholly
-different code path.  A plain async function is cleaner and easier to test.
+Implemented as a WorkflowBuilder graph with five Executor subclasses:
+InvestigatorExecutor, DirectorExecutor, ValidatorExecutor, OverlayExecutor, TemplateExecutor.
 """
 
 from __future__ import annotations
@@ -12,9 +10,10 @@ import asyncio
 import json
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Never
 
-from pydantic import BaseModel
+from agent_framework import Case, Default, Executor, WorkflowBuilder, WorkflowContext, handler
+from pydantic import BaseModel, ConfigDict, Field
 
 from agents.overlay import build_overlay
 from agents.templates import build_narrative
@@ -219,21 +218,357 @@ def _check_schema_lengths(dt: DirectorText) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
-# Template fallback helper
+# Graph message types (small Pydantic models)
 # ---------------------------------------------------------------------------
 
 
-def _template_fallback(
-    packet: Any, twin: Any, roster: list, log: dict
-) -> tuple[Overlay, dict]:
-    text = build_narrative(packet, roster)
-    overlay = build_overlay(packet, twin, text, NarrativeSource.TEMPLATE, ValidationStatus.PASSED)
-    log["source"] = "template"
-    return overlay, log
+class _Start(BaseModel):
+    """Initial message to InvestigatorExecutor."""
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    packet: Any
+    twin: Any
+    roster: list
+
+
+class _AfterInv(BaseModel):
+    """Investigator → Director (ok=True) or Template (ok=False)."""
+    ok: bool
+    findings: Findings | None = None
+    log: dict
+
+
+class _AfterDir(BaseModel):
+    """Director → Validator (ok=True) or Template (ok=False)."""
+    ok: bool
+    director_text: DirectorText | None = None
+    attempt: int = 1
+    findings: Findings | None = None
+    log: dict
+
+
+class _AfterVal(BaseModel):
+    """Validator → Overlay (passed=True) / Director retry (attempt=1) / Template (else)."""
+    passed: bool
+    overlay_text: Any = None
+    errors: list[str] = Field(default_factory=list)
+    attempt: int = 1
+    director_text: DirectorText | None = None
+    findings: Findings | None = None
+    log: dict
+
+
+class _Done(BaseModel):
+    """Final workflow output yielded to the caller."""
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    overlay: Any  # Overlay
+    log: dict
 
 
 # ---------------------------------------------------------------------------
-# Orchestration
+# Log helpers
+# ---------------------------------------------------------------------------
+
+
+def _fresh_log() -> dict:
+    return {
+        "source": "template",
+        "attempts": 0,
+        "durations_s": [],
+        "errors_attempt1": [],
+        "errors_attempt2": [],
+        "fallback_reason": None,
+    }
+
+
+def _append_dur(log: dict, dur: float) -> dict:
+    return {**log, "durations_s": [*log["durations_s"], dur]}
+
+
+# ---------------------------------------------------------------------------
+# Executors
+# ---------------------------------------------------------------------------
+
+
+class InvestigatorExecutor(Executor):
+    def __init__(self, *, client: Any, kql: Any, timeout_s: float, _agent: Any = None) -> None:
+        super().__init__(id="investigator")
+        self._client = client
+        self._kql = kql
+        self._timeout_s = timeout_s
+        self._agent = _agent
+
+    @handler
+    async def run(self, msg: _Start, ctx: WorkflowContext[_AfterInv]) -> None:
+        tool_results: list[dict] = []
+        log = _fresh_log()
+
+        ctx.set_state("packet", msg.packet)
+        ctx.set_state("twin", msg.twin)
+        ctx.set_state("roster", msg.roster)
+        players = _moment_players_map(msg.packet, msg.roster)
+        psum = _packet_summary(msg.packet, players)
+        ctx.set_state("psum", psum)
+        ctx.set_state("players", players)
+
+        agent = self._agent or make_investigator(self._client, self._kql, tool_results)
+        t0 = time.monotonic()
+        try:
+            inv_resp = await asyncio.wait_for(
+                agent.run(
+                    json.dumps({"packet": psum, "players": players}),
+                    options={
+                        "response_format": Findings,
+                        "reasoning": {"effort": "low"},
+                        "verbosity": "low",
+                    },
+                ),
+                timeout=self._timeout_s,
+            )
+            findings: Findings | None = inv_resp.value
+        except TimeoutError:
+            log = _append_dur(log, round(time.monotonic() - t0, 3))
+            log = {**log, "fallback_reason": "investigator timed out"}
+            ctx.set_state("tool_results", tool_results)
+            await ctx.send_message(_AfterInv(ok=False, log=log))
+            return
+        except Exception as exc:
+            log = _append_dur(log, round(time.monotonic() - t0, 3))
+            log = {**log, "fallback_reason": f"investigator failed: {type(exc).__name__}"}
+            ctx.set_state("tool_results", tool_results)
+            await ctx.send_message(_AfterInv(ok=False, log=log))
+            return
+
+        log = _append_dur(log, round(time.monotonic() - t0, 3))
+        ctx.set_state("tool_results", tool_results)
+
+        if findings is None:
+            log = {**log, "fallback_reason": "investigator returned no structured output"}
+            await ctx.send_message(_AfterInv(ok=False, log=log))
+            return
+
+        await ctx.send_message(_AfterInv(ok=True, findings=findings, log=log))
+
+
+class DirectorExecutor(Executor):
+    def __init__(self, *, client: Any, timeout_s: float, _agent: Any = None) -> None:
+        super().__init__(id="director")
+        self._client = client
+        self._timeout_s = timeout_s
+        self._agent = _agent
+
+    @handler
+    async def run_attempt1(self, msg: _AfterInv, ctx: WorkflowContext[_AfterDir]) -> None:
+        psum = ctx.get_state("psum")
+        players = ctx.get_state("players")
+        dir_msg = json.dumps({
+            "findings": msg.findings.model_dump(),
+            "packet_summary": psum,
+            "players": players,
+        })
+        await self._call_director(
+            dir_msg,
+            attempt=1,
+            findings=msg.findings,
+            incoming_log=msg.log,
+            ctx=ctx,
+        )
+
+    @handler
+    async def run_retry(self, msg: _AfterVal, ctx: WorkflowContext[_AfterDir]) -> None:
+        psum = ctx.get_state("psum")
+        players = ctx.get_state("players")
+        dir_msg = json.dumps({
+            "findings": msg.findings.model_dump(),
+            "packet_summary": psum,
+            "players": players,
+            "validation_errors": msg.errors,
+            "previous_text": msg.director_text.model_dump(),
+        })
+        await self._call_director(
+            dir_msg,
+            attempt=2,
+            findings=msg.findings,
+            incoming_log=msg.log,
+            ctx=ctx,
+        )
+
+    async def _call_director(
+        self,
+        dir_msg: str,
+        attempt: int,
+        findings: Findings | None,
+        incoming_log: dict,
+        ctx: WorkflowContext[_AfterDir],
+    ) -> None:
+        log = {**incoming_log, "durations_s": list(incoming_log["durations_s"])}
+        agent = self._agent or make_director(self._client)
+        t0 = time.monotonic()
+        try:
+            dir_resp = await asyncio.wait_for(
+                agent.run(
+                    dir_msg,
+                    options={
+                        "response_format": DirectorText,
+                        "reasoning": {"effort": "low"},
+                        "verbosity": "low",
+                    },
+                ),
+                timeout=self._timeout_s,
+            )
+            dt: DirectorText | None = dir_resp.value
+        except TimeoutError:
+            log = _append_dur(log, round(time.monotonic() - t0, 3))
+            log = {**log, "fallback_reason": f"director timed out (attempt {attempt})"}
+            await ctx.send_message(_AfterDir(ok=False, attempt=attempt, log=log))
+            return
+        except Exception as exc:
+            log = _append_dur(log, round(time.monotonic() - t0, 3))
+            reason = f"director attempt {attempt} failed: {type(exc).__name__}"
+            log = {**log, "fallback_reason": reason}
+            await ctx.send_message(_AfterDir(ok=False, attempt=attempt, log=log))
+            return
+
+        log = _append_dur(log, round(time.monotonic() - t0, 3))
+        log = {**log, "attempts": attempt}
+
+        if dt is None:
+            reason = f"director returned no structured output (attempt {attempt})"
+            log = {**log, "fallback_reason": reason}
+            await ctx.send_message(_AfterDir(ok=False, attempt=attempt, log=log))
+            return
+
+        await ctx.send_message(
+            _AfterDir(ok=True, director_text=dt, attempt=attempt, findings=findings, log=log)
+        )
+
+
+class ValidatorExecutor(Executor):
+    def __init__(self) -> None:
+        super().__init__(id="validator")
+
+    @handler
+    async def run(self, msg: _AfterDir, ctx: WorkflowContext[_AfterVal]) -> None:
+        packet = ctx.get_state("packet")
+        roster = ctx.get_state("roster")
+        tool_results: list[dict] = ctx.get_state("tool_results") or []
+
+        log = {**msg.log, "durations_s": list(msg.log["durations_s"])}
+        dt = msg.director_text
+
+        schema_errs = _check_schema_lengths(dt)
+        if schema_errs:
+            errors = schema_errs
+            overlay_text = None
+        else:
+            overlay_text = _director_text_to_overlay_text(dt)
+            errors = validate_text(overlay_text, packet, roster, tool_results)
+
+        attempt = msg.attempt
+        errors_key = f"errors_attempt{attempt}"
+        log = {**log, errors_key: errors}
+
+        await ctx.send_message(
+            _AfterVal(
+                passed=not errors and overlay_text is not None,
+                overlay_text=overlay_text,
+                errors=errors,
+                attempt=attempt,
+                director_text=dt,
+                findings=msg.findings,
+                log=log,
+            )
+        )
+
+
+class OverlayExecutor(Executor):
+    def __init__(self) -> None:
+        super().__init__(id="overlay")
+
+    @handler
+    async def run(self, msg: _AfterVal, ctx: WorkflowContext[Never, _Done]) -> None:
+        packet = ctx.get_state("packet")
+        twin = ctx.get_state("twin")
+        log = {**msg.log, "source": "agent"}
+        overlay = build_overlay(
+            packet, twin, msg.overlay_text, NarrativeSource.AGENT, ValidationStatus.PASSED
+        )
+        await ctx.yield_output(_Done(overlay=overlay, log=log))
+
+
+class TemplateExecutor(Executor):
+    def __init__(self) -> None:
+        super().__init__(id="template")
+
+    @handler
+    async def handle_inv(self, msg: _AfterInv, ctx: WorkflowContext[Never, _Done]) -> None:
+        await self._yield_template(msg.log, ctx)
+
+    @handler
+    async def handle_dir(self, msg: _AfterDir, ctx: WorkflowContext[Never, _Done]) -> None:
+        await self._yield_template(msg.log, ctx)
+
+    @handler
+    async def handle_val(self, msg: _AfterVal, ctx: WorkflowContext[Never, _Done]) -> None:
+        reason = msg.log.get("fallback_reason") or "validation failed after 2 attempts"
+        log = {**msg.log, "fallback_reason": reason}
+        await self._yield_template(log, ctx)
+
+    async def _yield_template(self, log: dict, ctx: WorkflowContext[Never, _Done]) -> None:
+        packet = ctx.get_state("packet")
+        twin = ctx.get_state("twin")
+        roster = ctx.get_state("roster")
+        text = build_narrative(packet, roster)
+        overlay = build_overlay(
+            packet, twin, text, NarrativeSource.TEMPLATE, ValidationStatus.PASSED
+        )
+        log = {**log, "source": "template"}
+        await ctx.yield_output(_Done(overlay=overlay, log=log))
+
+
+# ---------------------------------------------------------------------------
+# Workflow construction
+# ---------------------------------------------------------------------------
+
+
+def _build_workflow(
+    client: Any,
+    kql: Any,
+    timeout_s: float,
+    *,
+    inv_agent: Any = None,
+    dir_agent: Any = None,
+) -> Any:
+    """Build and return the moment workflow graph."""
+    inv_exec = InvestigatorExecutor(client=client, kql=kql, timeout_s=timeout_s, _agent=inv_agent)
+    dir_exec = DirectorExecutor(client=client, timeout_s=timeout_s, _agent=dir_agent)
+    val_exec = ValidatorExecutor()
+    ovl_exec = OverlayExecutor()
+    tpl_exec = TemplateExecutor()
+
+    return (
+        WorkflowBuilder(start_executor=inv_exec, max_iterations=10)
+        .add_switch_case_edge_group(
+            inv_exec,
+            [Case(condition=lambda m: m.ok, target=dir_exec), Default(target=tpl_exec)],
+        )
+        .add_switch_case_edge_group(
+            dir_exec,
+            [Case(condition=lambda m: m.ok, target=val_exec), Default(target=tpl_exec)],
+        )
+        .add_switch_case_edge_group(
+            val_exec,
+            [
+                Case(condition=lambda m: m.passed, target=ovl_exec),
+                Case(condition=lambda m: not m.passed and m.attempt == 1, target=dir_exec),
+                Default(target=tpl_exec),
+            ],
+        )
+        .build()
+    )
+
+
+# ---------------------------------------------------------------------------
+# Public entry point
 # ---------------------------------------------------------------------------
 
 
@@ -267,165 +602,13 @@ async def run_moment_workflow(
         Optional (investigator, director) tuple injected for testing;
         bypasses make_investigator / make_director.
     """
-    tool_results: list[dict] = []
+    inv_agent: Any = None
+    dir_agent: Any = None
     if _agents is not None:
-        investigator, director = _agents
-    else:
-        investigator = make_investigator(client, kql, tool_results)
-        director = make_director(client)
+        inv_agent, dir_agent = _agents
 
-    log: dict = {
-        "source": "template",
-        "attempts": 0,
-        "durations_s": [],
-        "errors_attempt1": [],
-        "errors_attempt2": [],
-        "fallback_reason": None,
-    }
-
-    # Agents see only moment-relevant players; full roster goes to the validator.
-    players = _moment_players_map(packet, roster)
-    psum = _packet_summary(packet, players)
-
-    # ------------------------------------------------------------------
-    # Step 1: Investigator
-    # ------------------------------------------------------------------
-    t0 = time.monotonic()
-    try:
-        inv_resp = await asyncio.wait_for(
-            investigator.run(
-                json.dumps({"packet": psum, "players": players}),
-                options={
-                    "response_format": Findings,
-                    "reasoning": {"effort": "low"},
-                    "verbosity": "low",
-                },
-            ),
-            timeout=timeout_s,
-        )
-        findings: Findings | None = inv_resp.value
-    except TimeoutError:
-        log["durations_s"].append(round(time.monotonic() - t0, 3))
-        log["fallback_reason"] = "investigator timed out"
-        return _template_fallback(packet, twin, roster, log)
-    except Exception as exc:
-        log["durations_s"].append(round(time.monotonic() - t0, 3))
-        log["fallback_reason"] = f"investigator failed: {type(exc).__name__}"
-        return _template_fallback(packet, twin, roster, log)
-    log["durations_s"].append(round(time.monotonic() - t0, 3))
-
-    if findings is None:
-        log["fallback_reason"] = "investigator returned no structured output"
-        return _template_fallback(packet, twin, roster, log)
-
-    # ------------------------------------------------------------------
-    # Step 2: Director attempt 1
-    # ------------------------------------------------------------------
-    dir_msg = json.dumps(
-        {"findings": findings.model_dump(), "packet_summary": psum, "players": players}
-    )
-    t0 = time.monotonic()
-    try:
-        dir_resp = await asyncio.wait_for(
-            director.run(
-                dir_msg,
-                options={
-                    "response_format": DirectorText,
-                    "reasoning": {"effort": "low"},
-                    "verbosity": "low",
-                },
-            ),
-            timeout=timeout_s,
-        )
-        dt: DirectorText | None = dir_resp.value
-    except TimeoutError:
-        log["durations_s"].append(round(time.monotonic() - t0, 3))
-        log["fallback_reason"] = "director timed out (attempt 1)"
-        return _template_fallback(packet, twin, roster, log)
-    except Exception as exc:
-        log["durations_s"].append(round(time.monotonic() - t0, 3))
-        log["fallback_reason"] = f"director attempt 1 failed: {type(exc).__name__}"
-        return _template_fallback(packet, twin, roster, log)
-    log["durations_s"].append(round(time.monotonic() - t0, 3))
-    log["attempts"] = 1
-
-    if dt is None:
-        log["fallback_reason"] = "director returned no structured output (attempt 1)"
-        return _template_fallback(packet, twin, roster, log)
-
-    schema_errs1 = _check_schema_lengths(dt)
-    if schema_errs1:
-        errors1 = schema_errs1
-        overlay_text1 = None
-    else:
-        overlay_text1 = _director_text_to_overlay_text(dt)
-        errors1 = validate_text(overlay_text1, packet, roster, tool_results)
-    log["errors_attempt1"] = errors1
-
-    if not errors1 and overlay_text1 is not None:
-        log["source"] = "agent"
-        overlay = build_overlay(
-            packet, twin, overlay_text1, NarrativeSource.AGENT, ValidationStatus.PASSED
-        )
-        return overlay, log
-
-    # ------------------------------------------------------------------
-    # Step 3: Director attempt 2 (retry with errors)
-    # ------------------------------------------------------------------
-    dir_msg2 = json.dumps({
-        "findings": findings.model_dump(),
-        "packet_summary": psum,
-        "players": players,
-        "validation_errors": errors1,
-        "previous_text": dt.model_dump(),
-    })
-    t0 = time.monotonic()
-    try:
-        dir_resp2 = await asyncio.wait_for(
-            director.run(
-                dir_msg2,
-                options={
-                    "response_format": DirectorText,
-                    "reasoning": {"effort": "low"},
-                    "verbosity": "low",
-                },
-            ),
-            timeout=timeout_s,
-        )
-        dt2: DirectorText | None = dir_resp2.value
-    except TimeoutError:
-        log["durations_s"].append(round(time.monotonic() - t0, 3))
-        log["fallback_reason"] = "director timed out (attempt 2)"
-        return _template_fallback(packet, twin, roster, log)
-    except Exception as exc:
-        log["durations_s"].append(round(time.monotonic() - t0, 3))
-        log["fallback_reason"] = f"director attempt 2 failed: {type(exc).__name__}"
-        return _template_fallback(packet, twin, roster, log)
-    log["durations_s"].append(round(time.monotonic() - t0, 3))
-    log["attempts"] = 2
-
-    if dt2 is None:
-        log["fallback_reason"] = "director returned no structured output (attempt 2)"
-        return _template_fallback(packet, twin, roster, log)
-
-    schema_errs2 = _check_schema_lengths(dt2)
-    if schema_errs2:
-        errors2 = schema_errs2
-        overlay_text2 = None
-    else:
-        overlay_text2 = _director_text_to_overlay_text(dt2)
-        errors2 = validate_text(overlay_text2, packet, roster, tool_results)
-    log["errors_attempt2"] = errors2
-
-    if not errors2 and overlay_text2 is not None:
-        log["source"] = "agent"
-        overlay = build_overlay(
-            packet, twin, overlay_text2, NarrativeSource.AGENT, ValidationStatus.PASSED
-        )
-        return overlay, log
-
-    # ------------------------------------------------------------------
-    # Step 4: Template fallback (validation failed twice)
-    # ------------------------------------------------------------------
-    log["fallback_reason"] = "validation failed after 2 attempts"
-    return _template_fallback(packet, twin, roster, log)
+    workflow = _build_workflow(client, kql, timeout_s, inv_agent=inv_agent, dir_agent=dir_agent)
+    result = await workflow.run(_Start(packet=packet, twin=twin, roster=roster))
+    outputs = result.get_outputs()
+    done: _Done = outputs[0]
+    return done.overlay, done.log
