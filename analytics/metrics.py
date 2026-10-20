@@ -532,3 +532,27 @@ def headline_moments(
     result = goals + selected_swings + selected_rest
     result.sort(key=lambda km: km.match_clock_s)
     return result
+
+
+# ---------------------------------------------------------------------------
+# pass_event_for
+# ---------------------------------------------------------------------------
+
+
+def pass_event_for(moment: KeyMoment, events: Sequence[MatchEvent]) -> MatchEvent | None:
+    """Return the pass event to score for *moment*.
+
+    For moments with source_event_id set (e.g. final_third_turnover), returns
+    the source pass.  For all other moment types, returns the moment's own event.
+    Returns None when the event is not found, has no end_x/end_y (not a pass),
+    or has no snapshot_id (no positions data to score against).
+    """
+    ev_id = moment.source_event_id if moment.source_event_id is not None else moment.event_id
+    ev = next((e for e in events if e.event_id == ev_id), None)
+    if ev is None:
+        return None
+    if ev.end_x is None or ev.end_y is None:
+        return None
+    if ev.snapshot_id is None:
+        return None
+    return ev

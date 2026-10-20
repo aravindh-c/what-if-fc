@@ -10,7 +10,7 @@ from collections.abc import Sequence
 
 from pydantic import BaseModel, ConfigDict
 
-from analytics.metrics import KeyMoment, momentum, pressure_index
+from analytics.metrics import KeyMoment, momentum, pass_event_for, pressure_index
 from analytics.tactical_twin import TwinResult, pass_difficulty
 from core.schemas import MatchEvent, PositionSnapshot
 
@@ -83,16 +83,22 @@ def build_evidence_packet(
     """
     evs = list(events)
 
-    # --- event IDs: triggering pass + up to 3 earlier events of same possession ---
-    trigger_ev = next((e for e in evs if e.event_id == moment.event_id), None)
-    ev_ids: list[str] = [moment.event_id]
-    if trigger_ev is not None:
+    # --- triggering pass event (source pass for FTT; own event otherwise) ---
+    trigger_ev = pass_event_for(moment, evs)
+
+    # --- event IDs: pass event + moment event (if different) + up to 3 earlier ---
+    if trigger_ev is None:
+        ev_ids: list[str] = [moment.event_id]
+    else:
+        ev_ids = [trigger_ev.event_id]
+        if moment.event_id != trigger_ev.event_id:
+            ev_ids.append(moment.event_id)
         poss_id = trigger_ev.possession_id
         earlier = [
             e for e in evs
             if e.possession_id == poss_id
             and e.match_clock_s < trigger_ev.match_clock_s
-            and e.event_id != moment.event_id
+            and e.event_id not in {trigger_ev.event_id, moment.event_id}
         ]
         earlier.sort(key=lambda e: e.match_clock_s, reverse=True)
         ev_ids += [e.event_id for e in earlier[:3]]

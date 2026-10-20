@@ -177,7 +177,7 @@ def _packet_from_scenario(scenario):
 def _packet_from_seed(seed: int, moment_k: int):
     """Build EvidencePacket + TwinResult from the K-th ghost moment in a seeded match."""
     from analytics.evidence import build_evidence_packet
-    from analytics.metrics import key_moments
+    from analytics.metrics import key_moments, pass_event_for
     from analytics.tactical_twin import score_pass
     from simulator.reference_data import build_players
     from simulator.run import run_match
@@ -192,17 +192,15 @@ def _packet_from_seed(seed: int, moment_k: int):
     for km in moments:
         if km.moment_type != "high_pressure_final_third_pass":
             continue
-        if km.snapshot_id is None:
+        pass_ev = pass_event_for(km, events)
+        if pass_ev is None:
             continue
-        snap = snap_map.get(km.snapshot_id)
+        snap = snap_map.get(pass_ev.snapshot_id)  # snapshot_id non-None per pass_event_for
         if snap is None:
             continue
-        ev = next((e for e in events if e.event_id == km.event_id), None)
-        if ev is None:
-            continue
-        twin = score_pass(ev, snap)
+        twin = score_pass(pass_ev, snap)
         if twin.ghost_shown:
-            ghost_moments.append((km, ev, snap, twin))
+            ghost_moments.append((km, pass_ev, snap, twin))
 
     if not ghost_moments:
         print(f"ERROR: no ghost-eligible moments found for seed {seed}.", file=sys.stderr)

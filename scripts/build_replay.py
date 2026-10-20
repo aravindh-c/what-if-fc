@@ -116,7 +116,7 @@ class _NoOpAgent:
 
 def _build_match_replay(seed: int, home_id: str, away_id: str) -> dict[str, Any]:
     from analytics.evidence import build_evidence_packet
-    from analytics.metrics import key_moments
+    from analytics.metrics import key_moments, pass_event_for
     from analytics.tactical_twin import score_pass
     from simulator.reference_data import build_players, build_teams
     from simulator.run import run_match
@@ -149,18 +149,23 @@ def _build_match_replay(seed: int, home_id: str, away_id: str) -> dict[str, Any]
         "twin_version": "twin-v1",
     }
 
+    n_skipped = 0
     ghost_moments: list[tuple] = []
     for km in moments:
         if not km.ghost_eligible:
             continue
-        snap = snap_map.get(km.snapshot_id) if km.snapshot_id else None
-        ev = next((e for e in events if e.event_id == km.event_id), None)
-        if snap is None or ev is None:
+        pass_ev = pass_event_for(km, events)
+        if pass_ev is None:
+            n_skipped += 1
             continue
-        twin = score_pass(ev, snap)
+        snap = snap_map.get(pass_ev.snapshot_id)  # snapshot_id non-None per pass_event_for
+        if snap is None:
+            n_skipped += 1
+            continue
+        twin = score_pass(pass_ev, snap)
         if twin.ghost_shown:
             packet = build_evidence_packet(km, events, snap, twin, match_id)
-            ghost_moments.append((km, ev, snap, twin, packet))
+            ghost_moments.append((km, pass_ev, snap, twin, packet))
 
     return {
         "_meta": meta,
@@ -170,6 +175,7 @@ def _build_match_replay(seed: int, home_id: str, away_id: str) -> dict[str, Any]
         "_ghost_moments": ghost_moments,
         "_players": players,
         "_match_id": match_id,
+        "_n_skipped": n_skipped,
     }
 
 
@@ -377,6 +383,7 @@ async def _assemble_bundle(
         "snapshots": len(snapshots),
         "overlays_agent": n_agent,
         "overlays_template": n_template,
+        "skipped": data.get("_n_skipped", 0),
     }
     return bundle, counts
 
@@ -427,8 +434,8 @@ async def _main(args: argparse.Namespace) -> None:
     out_dir = Path("data/replay")
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    # (replay_id, events, snapshots, overlays_agent, overlays_template, size_bytes)
-    replays: list[tuple[str, int, int, int, int, int]] = []
+    # (replay_id, events, snapshots, overlays_agent, overlays_template, skipped, size_bytes)
+    replays: list[tuple[str, int, int, int, int, int, int]] = []
 
     # Seeded match
     match_data = _build_match_replay(7, "T01", "T02")
@@ -447,6 +454,7 @@ async def _main(args: argparse.Namespace) -> None:
         match_counts["snapshots"],
         match_counts["overlays_agent"],
         match_counts["overlays_template"],
+        match_counts["skipped"],
         len(content),
     ))
 
@@ -471,6 +479,7 @@ async def _main(args: argparse.Namespace) -> None:
             scen_counts["snapshots"],
             scen_counts["overlays_agent"],
             scen_counts["overlays_template"],
+            scen_counts["skipped"],
             len(content),
         ))
 
@@ -478,13 +487,14 @@ async def _main(args: argparse.Namespace) -> None:
     col_w = max(len(r[0]) for r in replays) + 2
     header = (
         f"{'replay_id':<{col_w}} {'events':>7} {'snaps':>6}"
-        f" {'ov_agent':>9} {'ov_tmpl':>8} {'size_kb':>8}"
+        f" {'ov_agent':>9} {'ov_tmpl':>8} {'skipped':>8} {'size_kb':>8}"
     )
     print(header)
     print("-" * len(header))
-    for r_id, ev_n, sn_n, ov_a, ov_t, sz in replays:
+    for r_id, ev_n, sn_n, ov_a, ov_t, sk, sz in replays:
         print(
-            f"{r_id:<{col_w}} {ev_n:>7} {sn_n:>6} {ov_a:>9} {ov_t:>8} {sz // 1024:>7}K"
+            f"{r_id:<{col_w}} {ev_n:>7} {sn_n:>6}"
+            f" {ov_a:>9} {ov_t:>8} {sk:>8} {sz // 1024:>7}K"
         )
 
 
