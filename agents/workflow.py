@@ -181,6 +181,23 @@ def _director_text_to_overlay_text(dt: DirectorText) -> OverlayText:
     )
 
 
+def _check_schema_lengths(dt: DirectorText) -> list[str]:
+    """Return human-readable error messages for DirectorText fields exceeding OverlayText limits."""
+    errors: list[str] = []
+    checks: list[tuple[str, str, int]] = [
+        ("analyst headline", dt.analyst_headline, 80),
+        ("analyst body", dt.analyst_body, 280),
+        ("fan headline", dt.fan_headline, 80),
+        ("fan body", dt.fan_body, 280),
+    ]
+    if dt.cue is not None:
+        checks.append(("cue", dt.cue, 280))
+    for label, value, limit in checks:
+        if len(value) > limit:
+            errors.append(f"{label} is {len(value)} characters, max {limit}")
+    return errors
+
+
 # ---------------------------------------------------------------------------
 # Template fallback helper
 # ---------------------------------------------------------------------------
@@ -258,7 +275,11 @@ async def run_moment_workflow(
         inv_resp = await asyncio.wait_for(
             investigator.run(
                 json.dumps({"packet": psum, "players": players}),
-                options={"response_format": Findings},
+                options={
+                    "response_format": Findings,
+                    "reasoning": {"effort": "low"},
+                    "verbosity": "low",
+                },
             ),
             timeout=timeout_s,
         )
@@ -286,7 +307,14 @@ async def run_moment_workflow(
     t0 = time.monotonic()
     try:
         dir_resp = await asyncio.wait_for(
-            director.run(dir_msg, options={"response_format": DirectorText}),
+            director.run(
+                dir_msg,
+                options={
+                    "response_format": DirectorText,
+                    "reasoning": {"effort": "low"},
+                    "verbosity": "low",
+                },
+            ),
             timeout=timeout_s,
         )
         dt: DirectorText | None = dir_resp.value
@@ -305,16 +333,16 @@ async def run_moment_workflow(
         log["fallback_reason"] = "director returned no structured output (attempt 1)"
         return _template_fallback(packet, twin, roster, log)
 
-    try:
+    schema_errs1 = _check_schema_lengths(dt)
+    if schema_errs1:
+        errors1 = schema_errs1
+        overlay_text1 = None
+    else:
         overlay_text1 = _director_text_to_overlay_text(dt)
-    except Exception as exc:
-        log["fallback_reason"] = f"overlay text schema rejected attempt 1: {exc}"
-        return _template_fallback(packet, twin, roster, log)
-
-    errors1 = validate_text(overlay_text1, packet, roster, tool_results)
+        errors1 = validate_text(overlay_text1, packet, roster, tool_results)
     log["errors_attempt1"] = errors1
 
-    if not errors1:
+    if not errors1 and overlay_text1 is not None:
         log["source"] = "agent"
         overlay = build_overlay(
             packet, twin, overlay_text1, NarrativeSource.AGENT, ValidationStatus.PASSED
@@ -334,7 +362,14 @@ async def run_moment_workflow(
     t0 = time.monotonic()
     try:
         dir_resp2 = await asyncio.wait_for(
-            director.run(dir_msg2, options={"response_format": DirectorText}),
+            director.run(
+                dir_msg2,
+                options={
+                    "response_format": DirectorText,
+                    "reasoning": {"effort": "low"},
+                    "verbosity": "low",
+                },
+            ),
             timeout=timeout_s,
         )
         dt2: DirectorText | None = dir_resp2.value
@@ -353,16 +388,16 @@ async def run_moment_workflow(
         log["fallback_reason"] = "director returned no structured output (attempt 2)"
         return _template_fallback(packet, twin, roster, log)
 
-    try:
+    schema_errs2 = _check_schema_lengths(dt2)
+    if schema_errs2:
+        errors2 = schema_errs2
+        overlay_text2 = None
+    else:
         overlay_text2 = _director_text_to_overlay_text(dt2)
-    except Exception as exc:
-        log["fallback_reason"] = f"overlay text schema rejected attempt 2: {exc}"
-        return _template_fallback(packet, twin, roster, log)
-
-    errors2 = validate_text(overlay_text2, packet, roster, tool_results)
+        errors2 = validate_text(overlay_text2, packet, roster, tool_results)
     log["errors_attempt2"] = errors2
 
-    if not errors2:
+    if not errors2 and overlay_text2 is not None:
         log["source"] = "agent"
         overlay = build_overlay(
             packet, twin, overlay_text2, NarrativeSource.AGENT, ValidationStatus.PASSED

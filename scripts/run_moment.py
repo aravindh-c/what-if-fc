@@ -72,15 +72,21 @@ def _load_scenario(scenario_id: str):
 
 
 def _packet_from_scenario(scenario):
-    """Build EvidencePacket + TwinResult from a hand-designed Scenario."""
+    """Build EvidencePacket + TwinResult from a hand-designed Scenario.
+
+    Returns (packet, twin, roster, ev) where ev has the corrected match_id
+    suitable for LocalKql (^match_[A-Za-z0-9_]+$).
+    """
     from analytics.evidence import EvidencePacket, LiveMetrics
     from analytics.tactical_twin import pass_difficulty as _pass_difficulty
     from analytics.tactical_twin import score_pass
     from simulator.reference_data import build_players
 
     players = build_players(7)
-    ev = scenario.actual_pass
-    snap = scenario.snapshot
+    # Remap match_id from "demo" to a KQL-valid id so LocalKql accepts it.
+    match_id = f"match_demo_{scenario.scenario_id}"
+    ev = scenario.actual_pass.model_copy(update={"match_id": match_id})
+    snap = scenario.snapshot.model_copy(update={"match_id": match_id})
 
     twin = score_pass(ev, snap)
 
@@ -116,7 +122,7 @@ def _packet_from_scenario(scenario):
         pd = 0.0
 
     packet = EvidencePacket(
-        match_id=ev.match_id,
+        match_id=match_id,
         moment_type="high_pressure_final_third_pass",
         moment_minute=minute,
         moment_score=0.7,
@@ -146,7 +152,7 @@ def _packet_from_scenario(scenario):
             round(ghost_cand["nearest_defender_m"], 1) if ghost_cand else None
         ),
     )
-    return packet, twin, players
+    return packet, twin, players, ev
 
 
 # ---------------------------------------------------------------------------
@@ -231,8 +237,8 @@ async def _run(args: argparse.Namespace) -> None:
     events: list | None = None
     if args.scenario:
         scenario = _load_scenario(args.scenario)
-        packet, twin, roster = _packet_from_scenario(scenario)
-        events = [scenario.actual_pass]  # LocalKql needs at least the trigger event
+        packet, twin, roster, ev = _packet_from_scenario(scenario)
+        events = [ev]  # event has the KQL-valid match_id
     else:
         packet, twin, roster, events = _packet_from_seed(args.seed, args.moment)
 
@@ -275,7 +281,7 @@ async def _run(args: argparse.Namespace) -> None:
     elapsed = round(time.monotonic() - t_start, 3)
 
     # Print results
-    print(json.dumps(overlay.model_dump(), indent=2))
+    print(json.dumps(overlay.model_dump(by_alias=True, mode="json"), indent=2))
     print()
     print(f"source   : {log['source']}")
     print(f"attempts : {log['attempts']}")

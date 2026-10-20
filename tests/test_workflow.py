@@ -373,6 +373,37 @@ def test_overlay_is_always_valid_on_timeout() -> None:
     assert overlay.validation_status == ValidationStatus.PASSED
 
 
+def test_length_error_on_attempt1_retried_not_template() -> None:
+    """Schema length error on attempt 1 triggers retry; agent succeeds on attempt 2."""
+    packet = _build_packet()
+    twin = _build_twin()
+    roster = _build_roster()
+
+    long_body = "A" * 290  # 290 chars > 280 limit
+    long_dt = DirectorText(
+        analyst_headline="Ghost Pass at minute 34",
+        analyst_body=long_body,
+        fan_headline="Free!",
+        fan_body="Option score.",
+    )
+
+    investigator = _mock_agent([_good_findings()])
+    director = _mock_agent([long_dt, _good_director_text(packet)])
+
+    overlay, log = asyncio.run(
+        run_moment_workflow(
+            packet, twin, roster, _null_kql(), None,
+            _agents=(investigator, director),
+        )
+    )
+    assert overlay.narrative_source == NarrativeSource.AGENT
+    assert log["source"] == "agent"
+    assert log["attempts"] == 2
+    assert any("analyst body" in e for e in log["errors_attempt1"]), (
+        f"Expected length error in errors_attempt1, got: {log['errors_attempt1']}"
+    )
+
+
 def test_overlay_valid_schema_after_template_fallback() -> None:
     """Template fallback produces an Overlay that round-trips model_validate."""
     packet = _build_packet()

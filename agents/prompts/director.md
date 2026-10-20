@@ -40,7 +40,7 @@ Return exactly this JSON structure:
 
 **Fan ⊆ Analyst**: every number that appears in fan text must also appear in analyst text.
 
-**Length**: stay within the character limit for each field — excess causes a retry.
+**Length**: keep each body under 240 characters and each headline under 70 — the hard schema limits are 280/80 but the tighter target avoids retries.
 
 ## Tone
 
