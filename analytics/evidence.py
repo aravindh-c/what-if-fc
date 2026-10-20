@@ -85,6 +85,8 @@ def build_evidence_packet(
 
     # --- triggering pass event (source pass for FTT; own event otherwise) ---
     trigger_ev = pass_event_for(moment, evs)
+    # Raw moment event used as fallback for player identity (e.g. goal scorer)
+    moment_ev = next((e for e in evs if e.event_id == moment.event_id), None)
 
     # --- event IDs: pass event + moment event (if different) + up to 3 earlier ---
     if trigger_ev is None:
@@ -203,7 +205,10 @@ def build_evidence_packet(
         ghost_shown=twin.ghost_shown,
         formula_version=twin.version,
         label=_LABEL,
-        passer_id=trigger_ev.player_id if trigger_ev else None,
+        passer_id=(
+            trigger_ev.player_id if trigger_ev
+            else (moment_ev.player_id if moment_ev else None)
+        ),
         actual_receiver_id=trigger_ev.receiver_id if trigger_ev else None,
         highlight_defenders=list(twin.visual.highlight_defenders),
         actual_pass_length_m=actual_pass_length_m,

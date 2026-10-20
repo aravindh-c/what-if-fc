@@ -79,6 +79,27 @@ A short line a TV commentator could say, built from these same facts. Omit (`nul
 }
 ```
 
+## Goal moments
+
+When `packet_summary.moment_type` is `"goal"`, write for the goal event instead.
+
+### `analyst_headline` (≤70 chars)
+Name the scorer and the new score: "[Scorer] makes it [score]".
+
+### `analyst_body` (≤240 chars)
+One or two sentences: who scored, the minute, and the scoreline.
+Mention pressure index if non-zero values are in `pressure_index`.
+Do not mention Ghost Pass, tactical scores, or pass alternatives.
+
+### `fan_headline` (≤70 chars)
+A punchy goal celebration line naming the scorer.
+
+### `fan_body` (≤240 chars)
+One vivid sentence. Name the scorer and the new score. No jargon.
+
+`passer_name` is the scorer's name. `scoreline` shows the score after the goal.
+Use at most **one** number in the fan text.
+
 ## Rules
 
 **Numbers**: every number you write must come from `packet_summary` or from a value listed in `findings.claims[*].evidence_fields`. Write each number at the exact decimal precision of its source.
