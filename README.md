@@ -63,6 +63,39 @@ Copy `.env.example` to `.env` when you reach the Azure steps; never commit `.env
 | `infra/` | Deployment scripts |
 | `docs/` | Requirements, architecture, demo script |
 
+## Building replay bundles
+
+Replay bundles are self-contained JSON files stored in `data/replay/` (git-ignored). They let the React frontend work with Fabric paused.
+
+```bash
+# Build all bundles using template-only overlays (free, no Azure credentials needed)
+python -m scripts.build_replay
+
+# Build with agent-generated overlays (requires FOUNDRY_PROJECT_ENDPOINT + FOUNDRY_MODEL in .env)
+python -m scripts.build_replay --agents
+
+# Build and upload to Azure Blob Storage (requires REPLAY_STORAGE_ACCOUNT_URL in .env)
+python -m scripts.build_replay --upload
+```
+
+This produces one JSON bundle per replay ID:
+- `match_s7_T01_T02.json` — full 90-minute seeded match (seed=7)
+- `scenario_<id>.json` — one file per hand-designed demo scenario
+
+## Running the replay API
+
+```bash
+uvicorn api.main:app --reload
+```
+
+Endpoints:
+- `GET /health` — liveness probe; returns `{status, mode, store}`
+- `GET /api/replays` — catalog: `[{replay_id, kind, title, overlays}]`
+- `GET /api/replays/{replay_id}` — full bundle (404 if unknown)
+- `GET /api/replays/{replay_id}/overlays?since_clock_s=N` — overlays after clock position N (for AT-11 live-update shape)
+
+The API uses **Azure Blob Storage** when `REPLAY_STORAGE_ACCOUNT_URL` is set; otherwise it reads from `data/replay/` locally.
+
 ## Honest labels
 
 Tactical Twin values are heuristic **tactical option scores** (version `twin-v1`), not probabilities, expected goals or expected assists. Possession is an event-based proxy.
