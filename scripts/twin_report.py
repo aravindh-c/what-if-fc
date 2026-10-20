@@ -13,6 +13,7 @@ from analytics.metrics import headline_moments, pass_event_for
 from analytics.tactical_twin import score_pass
 from core.schemas import MatchEvent, PositionSnapshot
 from simulator.engine import MatchEngine
+from simulator.ids import make_match_id
 from simulator.reference_data import build_players, build_teams
 
 SCENARIOS_DIR = Path("data/scenarios")
@@ -42,7 +43,7 @@ def _run_seeds() -> None:
             away_team=teams["T02"],
             players=players,
             seed=seed,
-            match_id=f"match_s{seed}_T01_T02",
+            match_id=make_match_id(seed, "T01", "T02"),
             scenario_id="live",
         )
         events, snapshots = engine.run()

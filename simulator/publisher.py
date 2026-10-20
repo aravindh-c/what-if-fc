@@ -83,6 +83,7 @@ def sleep_duration(event_clock: int, prev_clock: int, speed: float) -> float:
 
 def _build_engine(seed: int, home_id: str, away_id: str):  # type: ignore[return]
     from simulator.engine import MatchEngine
+    from simulator.ids import make_match_id
     from simulator.reference_data import build_players, build_teams
 
     teams = {t.team_id: t for t in build_teams()}
@@ -98,7 +99,7 @@ def _build_engine(seed: int, home_id: str, away_id: str):  # type: ignore[return
         away_team=teams[away_id],
         players=players,
         seed=seed,
-        match_id=f"match_s{seed}_{home_id}_{away_id}",
+        match_id=make_match_id(seed, home_id, away_id),
         scenario_id="live",
     )
 

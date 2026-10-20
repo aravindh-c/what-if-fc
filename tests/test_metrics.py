@@ -387,6 +387,7 @@ class TestKeyMoments:
 @pytest.fixture(scope="module")
 def seed7_events() -> list[MatchEvent]:
     from simulator.engine import MatchEngine
+    from simulator.ids import make_match_id
     from simulator.reference_data import build_players, build_teams
 
     teams = {t.team_id: t for t in build_teams()}
@@ -396,7 +397,7 @@ def seed7_events() -> list[MatchEvent]:
         away_team=teams["T02"],
         players=players,
         seed=7,
-        match_id="match_s7_T01_T02",
+        match_id=make_match_id(7, "T01", "T02"),
         scenario_id="live",
     )
     evs, _ = engine.run()

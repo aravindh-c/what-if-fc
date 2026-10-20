@@ -12,6 +12,7 @@ import json
 
 import pytest
 
+from simulator.ids import make_match_id
 from simulator.publisher import (
     _event_time,
     _interleave,
@@ -196,7 +197,7 @@ def _seed7_events_and_snaps():
         away_team=teams["T02"],
         players=players,
         seed=7,
-        match_id="match_s7_T01_T02",
+        match_id=make_match_id(7, "T01", "T02"),
         scenario_id="live",
     )
     events, snapshots = engine.run()

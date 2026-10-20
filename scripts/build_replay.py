@@ -150,6 +150,7 @@ def _build_match_replay(seed: int, home_id: str, away_id: str) -> dict[str, Any]
     from analytics.evidence import build_evidence_packet
     from analytics.metrics import key_moments, pass_event_for
     from analytics.tactical_twin import score_pass
+    from simulator.ids import make_match_id
     from simulator.reference_data import build_players, build_teams
     from simulator.run import run_match
 
@@ -161,7 +162,7 @@ def _build_match_replay(seed: int, home_id: str, away_id: str) -> dict[str, Any]
     moments = key_moments(events)
 
     meta = {
-        "replay_id": f"match_s{seed}_{home_id}_{away_id}",
+        "replay_id": make_match_id(seed, home_id, away_id),
         "kind": "match",
         "title": f"{teams[home_id].name} vs {teams[away_id].name} (seed {seed})",
         "teams": {

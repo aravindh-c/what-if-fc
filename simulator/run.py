@@ -18,6 +18,7 @@ from pathlib import Path
 
 from core.schemas import EventType, Outcome
 from simulator.engine import MatchEngine
+from simulator.ids import make_match_id
 from simulator.reference_data import build_players, build_teams
 
 OUT_DIR = Path("data/generated")
@@ -27,7 +28,7 @@ def run_match(
     seed: int,
     home_id: str,
     away_id: str,
-    scenario_id: str = "free",
+    scenario_id: str = "live",
 ) -> tuple[str, list, list]:
     """Run one match; return (match_id, events, snapshots)."""
     teams   = {t.team_id: t for t in build_teams()}
@@ -38,7 +39,7 @@ def run_match(
     if away_id not in teams:
         raise ValueError(f"unknown team id: {away_id!r}")
 
-    match_id = f"{home_id}v{away_id}_s{seed}"
+    match_id = make_match_id(seed, home_id, away_id)
     engine   = MatchEngine(
         home_team=teams[home_id],
         away_team=teams[away_id],
@@ -85,7 +86,7 @@ def main() -> None:
     parser.add_argument("--seed",     type=int, default=7)
     parser.add_argument("--home",     default="T01")
     parser.add_argument("--away",     default="T02")
-    parser.add_argument("--scenario", default="free")
+    parser.add_argument("--scenario", default="live")
     args = parser.parse_args()
 
     match_id, events, snapshots = run_match(args.seed, args.home, args.away, args.scenario)
