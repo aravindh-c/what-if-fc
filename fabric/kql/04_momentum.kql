@@ -16,11 +16,13 @@
 // Coordinate rule: x,y in the possessing team's frame (attacking towards x=105).
 
 .create-or-alter function with (folder="whatif") Momentum(p_match_id:string) {
-    let max_min = toscalar(
+    // coalesce guards against null when no events exist for p_match_id;
+    // the "| where max_min >= 0" below propagates the empty result through make-series.
+    let max_min = coalesce(toscalar(
         EventsClean()
         | where match_id == p_match_id
         | summarize max(match_clock_s / 60)
-    );
+    ), long(-1));
     // All team_ids for this match (to guarantee both appear in the dense series)
     let all_teams = EventsClean()
         | where match_id == p_match_id and isnotempty(team_id)
@@ -34,8 +36,12 @@
         | summarize pts = sum(w) by minute = match_clock_s / 60, team_id
         | union (all_teams | extend minute = long(0), pts = 0.0)
         | summarize pts = sum(pts) by minute, team_id;
-    // Dense minute series per team; 5-minute trailing sum via series_fir
+    // Dense minute series per team; 5-minute trailing sum via series_fir.
+    // "| where max_min >= 0" is a constant predicate: when max_min == -1 (no events),
+    // it removes all rows so make-series returns empty, avoiding the "stop range must
+    // be a constant non null value" error.
     let rolling = attacks
+        | where max_min >= 0
         | make-series pts = sum(pts) default=0.0
           on minute from 0 to max_min + 1 step 1 by team_id
         | extend rolling_pts = series_fir(pts, dynamic([1.0, 1.0, 1.0, 1.0, 1.0]), false, false)

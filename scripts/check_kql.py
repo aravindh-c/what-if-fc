@@ -291,6 +291,20 @@ def main(argv: list[str] | None = None) -> int:
     client = _kusto_client(cluster_uri)
     mid = args.match_id
 
+    # Fail fast if the match has no events in the Eventhouse (wrong match_id or data not yet
+    # streamed), so the caller gets a clear message instead of misleading all-zero diffs.
+    event_count_rows = _run_kql(
+        client, database,
+        f'EventsClean() | where match_id == "{mid}" | count',
+    )
+    if not event_count_rows or int(event_count_rows[0].get("Count", 0)) == 0:
+        print(
+            f"ERROR: EventsClean() returned 0 rows for match_id={mid!r}. "
+            "Stream the match first or check the match_id.",
+            file=sys.stderr,
+        )
+        return 1
+
     kql_stats     = _run_kql(client, database, f'MatchStats("{mid}")')
     kql_momentum  = _run_kql(client, database, f'Momentum("{mid}")')
     kql_pressure  = _run_kql(client, database, f'PressureIndex("{mid}")')

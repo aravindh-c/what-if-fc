@@ -16,11 +16,13 @@
 // x < 52.5 means the pressing team is working inside the possessing team's own half.
 
 .create-or-alter function with (folder="whatif") PressureIndex(p_match_id:string) {
-    let max_min = toscalar(
+    // coalesce guards against null when no events exist for p_match_id;
+    // the "| where max_min >= 0" below propagates the empty result through make-series.
+    let max_min = coalesce(toscalar(
         EventsClean()
         | where match_id == p_match_id
         | summarize max(match_clock_s / 60)
-    );
+    ), long(-1));
     // All team_ids for this match (to guarantee both appear in the dense series)
     let all_teams = EventsClean()
         | where match_id == p_match_id and isnotempty(team_id)
@@ -33,8 +35,11 @@
         | summarize press_cnt = count() by minute = match_clock_s / 60, team_id
         | union (all_teams | extend minute = long(0), press_cnt = long(0))
         | summarize press_cnt = sum(press_cnt) by minute, team_id;
-    // Dense minute series per team; 5-minute trailing sum via series_fir
+    // Dense minute series per team; 5-minute trailing sum via series_fir.
+    // "| where max_min >= 0" removes all rows when max_min == -1 (unknown match)
+    // so make-series returns empty instead of erroring on a null stop value.
     let rolling = presses
+        | where max_min >= 0
         | make-series press_sum = sum(press_cnt) default=0
           on minute from 0 to max_min + 1 step 1 by team_id
         | extend rolling_sum = series_fir(press_sum, dynamic([1.0, 1.0, 1.0, 1.0, 1.0]), false, false)
