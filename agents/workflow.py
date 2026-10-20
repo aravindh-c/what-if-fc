@@ -153,6 +153,8 @@ def _packet_summary(packet: Any, players: dict | None = None) -> dict:
         "ghost_pass_length_m": _r1(packet.ghost_pass_length_m),
         "actual_nearest_defender_m": _r1(packet.actual_nearest_defender_m),
         "ghost_nearest_defender_m": _r1(packet.ghost_nearest_defender_m),
+        "actual_progress_m": _r1(packet.actual_progress_m),
+        "ghost_progress_m": _r1(packet.ghost_progress_m),
         "momentum_share": dict(packet.live_metrics.momentum_share),
         "pressure_index": dict(packet.live_metrics.pressure_index),
         "scoreline": dict(packet.live_metrics.scoreline),

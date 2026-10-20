@@ -121,6 +121,18 @@ def _packet_from_scenario(scenario):
     else:
         pd = 0.0
 
+    start_x = ev.x
+    actual_progress = (
+        round(actual_cand["end_x"] - start_x, 1)
+        if actual_cand and start_x is not None
+        else None
+    )
+    ghost_progress = (
+        round(ghost_cand["end_x"] - start_x, 1)
+        if ghost_cand and start_x is not None
+        else None
+    )
+
     packet = EvidencePacket(
         match_id=match_id,
         moment_type="high_pressure_final_third_pass",
@@ -151,6 +163,8 @@ def _packet_from_scenario(scenario):
         ghost_nearest_defender_m=(
             round(ghost_cand["nearest_defender_m"], 1) if ghost_cand else None
         ),
+        actual_progress_m=actual_progress,
+        ghost_progress_m=ghost_progress,
     )
     return packet, twin, players, ev
 

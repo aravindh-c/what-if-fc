@@ -56,6 +56,8 @@ class EvidencePacket(BaseModel):
     ghost_pass_length_m: float | None
     actual_nearest_defender_m: float | None
     ghost_nearest_defender_m: float | None
+    actual_progress_m: float | None = None   # end_x − start_x; negative = backwards
+    ghost_progress_m: float | None = None
 
 
 _LABEL = "heuristic tactical option score, not a probability"
@@ -164,6 +166,17 @@ def build_evidence_packet(
     ghost_nearest_def = (
         round(ghost_cand_dict["nearest_defender_m"], 1) if ghost_cand_dict else None
     )
+    start_x = trigger_ev.x if trigger_ev is not None else None
+    actual_progress: float | None = (
+        round(actual_cand_dict["end_x"] - start_x, 1)
+        if actual_cand_dict and start_x is not None
+        else None
+    )
+    ghost_progress: float | None = (
+        round(ghost_cand_dict["end_x"] - start_x, 1)
+        if ghost_cand_dict and start_x is not None
+        else None
+    )
 
     return EvidencePacket(
         match_id=match_id,
@@ -191,4 +204,6 @@ def build_evidence_packet(
         ghost_pass_length_m=ghost_pass_length_m,
         actual_nearest_defender_m=actual_nearest_def,
         ghost_nearest_defender_m=ghost_nearest_def,
+        actual_progress_m=actual_progress,
+        ghost_progress_m=ghost_progress,
     )

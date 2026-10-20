@@ -15,6 +15,7 @@ You write live broadcast text for a ghost-pass moment: a passing decision where 
 Key fields in `packet_summary`:
 - `passer_name`, `actual_receiver_name`, `ghost_receiver_name` — resolved full names
 - `actual_nearest_defender_m`, `ghost_nearest_defender_m` — how tightly defended each receiver was (1 dp)
+- `actual_progress_m`, `ghost_progress_m` — forward progress of each pass in metres (1 dp); negative means backwards
 - `pass_difficulty` — how hard the pass was to execute (1 dp)
 - `twin_actual_score`, `twin_ghost_score` — tactical option scores (2 dp)
 - `twin_delta` — ghost score minus actual (2 dp)
@@ -34,8 +35,10 @@ Name the passer and the ghost receiver in a single phrase. Example structure: "[
 
 ### `analyst_body` (≤240 chars)
 Two plain sentences:
-1. What was played: "[Passer] played to [actual receiver], nearest defender [X.X] m away (pass difficulty [X.X])."
+1. What was played: "[Passer] played to [actual receiver], nearest defender [X.X] m away (pass difficulty [X.X])." If `actual_progress_m` is negative, note the pass went backwards.
 2. The better option: "[Ghost receiver] was clear at [Y.Y] m — tactical option score [ghost_score] vs [actual_score]."
+
+Do not copy sentence structure from the worked example word-for-word — vary the phrasing between moments.
 
 ### `fan_headline` (≤70 chars)
 A punchy line naming the ghost receiver.

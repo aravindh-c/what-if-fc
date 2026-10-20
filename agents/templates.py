@@ -62,10 +62,28 @@ def _ghost_pass_text(packet, roster_map: dict[str, str]) -> OverlayText:
     a_score = packet.twin_actual_score
     g_score = packet.twin_ghost_score
 
+    # Pass direction: note backwards passes (negative progress)
+    prog = packet.actual_progress_m
+    if prog is not None and prog < 0:
+        direction = f" (backwards, {prog:.1f} m)"
+    else:
+        direction = ""
+
+    # Defender distance context when available
+    a_def = packet.actual_nearest_defender_m
+    g_def = packet.ghost_nearest_defender_m
+    if a_def is not None and g_def is not None:
+        def_note = (
+            f" Pass to {receiver} had a defender {a_def:.1f} m away;"
+            f" {ghost} was {g_def:.1f} m clear."
+        )
+    else:
+        def_note = ""
+
     a_headline = f"Ghost Pass at minute {packet.moment_minute}"
     a_body = (
-        f"Pass to {receiver}: option score {a_score:.2f}. "
-        f"Ghost target {ghost}: option score {g_score:.2f}."
+        f"Pass to {receiver}{direction}: option score {a_score:.2f}."
+        f" Ghost target {ghost}: option score {g_score:.2f}.{def_note}"
     )
 
     f_headline = f"There was a free player at minute {packet.moment_minute}!"

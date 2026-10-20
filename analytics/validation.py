@@ -137,6 +137,8 @@ def _packet_number_sets(
     _add(packet.ghost_pass_length_m)
     _add(packet.actual_nearest_defender_m)
     _add(packet.ghost_nearest_defender_m)
+    _add(getattr(packet, "actual_progress_m", None))
+    _add(getattr(packet, "ghost_progress_m", None))
 
     for v in packet.live_metrics.scoreline.values():
         _add(v)
