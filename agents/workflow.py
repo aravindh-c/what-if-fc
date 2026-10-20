@@ -156,6 +156,23 @@ def _players_map(roster: list) -> dict:
     }
 
 
+def _moment_players_map(packet: Any, roster: list) -> dict:
+    """Return the players map restricted to the moment's relevant players.
+
+    Agents only need names for the passer, receivers and highlighted
+    defenders.  Passing the whole roster leaks names the agents must not
+    mention (the validator flags mid-sentence capitalised words that are
+    not in the roster or stopwords).
+    """
+    allowed: set[str] = set(filter(None, [
+        packet.passer_id,
+        packet.actual_receiver_id,
+        packet.twin_ghost_player_id,
+        *packet.highlight_defenders,
+    ]))
+    return _players_map([p for p in roster if p.player_id in allowed])
+
+
 def _director_text_to_overlay_text(dt: DirectorText) -> OverlayText:
     return OverlayText(
         analyst={"en": NarrativeText(headline=dt.analyst_headline, body=dt.analyst_body)},
@@ -230,7 +247,8 @@ async def run_moment_workflow(
     }
 
     psum = _packet_summary(packet)
-    players = _players_map(roster)
+    # Agents see only moment-relevant players; full roster goes to the validator.
+    players = _moment_players_map(packet, roster)
 
     # ------------------------------------------------------------------
     # Step 1: Investigator
@@ -245,6 +263,10 @@ async def run_moment_workflow(
             timeout=timeout_s,
         )
         findings: Findings | None = inv_resp.value
+    except TimeoutError:
+        log["durations_s"].append(round(time.monotonic() - t0, 3))
+        log["fallback_reason"] = "investigator timed out"
+        return _template_fallback(packet, twin, roster, log)
     except Exception as exc:
         log["durations_s"].append(round(time.monotonic() - t0, 3))
         log["fallback_reason"] = f"investigator failed: {type(exc).__name__}"
@@ -268,6 +290,10 @@ async def run_moment_workflow(
             timeout=timeout_s,
         )
         dt: DirectorText | None = dir_resp.value
+    except TimeoutError:
+        log["durations_s"].append(round(time.monotonic() - t0, 3))
+        log["fallback_reason"] = "director timed out (attempt 1)"
+        return _template_fallback(packet, twin, roster, log)
     except Exception as exc:
         log["durations_s"].append(round(time.monotonic() - t0, 3))
         log["fallback_reason"] = f"director attempt 1 failed: {type(exc).__name__}"
@@ -312,6 +338,10 @@ async def run_moment_workflow(
             timeout=timeout_s,
         )
         dt2: DirectorText | None = dir_resp2.value
+    except TimeoutError:
+        log["durations_s"].append(round(time.monotonic() - t0, 3))
+        log["fallback_reason"] = "director timed out (attempt 2)"
+        return _template_fallback(packet, twin, roster, log)
     except Exception as exc:
         log["durations_s"].append(round(time.monotonic() - t0, 3))
         log["fallback_reason"] = f"director attempt 2 failed: {type(exc).__name__}"

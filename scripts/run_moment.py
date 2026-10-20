@@ -11,11 +11,13 @@ Flags:
     --seed N          Seed for the match simulator (use with --moment)
     --moment K        K-th ghost-eligible headline moment (1-indexed)
     --fabric          Use FabricKql instead of LocalKql
-    --force-fail      Simulate model timeout to demo template fallback
+    --force-fail      Demo template fallback via a stub that sleeps past the timeout
 
 Environment variables (required when using --fabric or without --force-fail):
     FOUNDRY_PROJECT_ENDPOINT
     FOUNDRY_MODEL
+    KQL_CLUSTER_URI  (--fabric only)
+    KQL_DATABASE     (--fabric only)
 """
 
 from __future__ import annotations
@@ -41,6 +43,18 @@ def _require_env(name: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Force-fail stub
+# ---------------------------------------------------------------------------
+
+
+class _SleeperAgent:
+    """Stub agent whose run() sleeps indefinitely, causing asyncio.wait_for to time out."""
+
+    async def run(self, *args: object, **kwargs: object) -> None:
+        await asyncio.sleep(9999)
+
+
+# ---------------------------------------------------------------------------
 # Scenario loading
 # ---------------------------------------------------------------------------
 
@@ -60,6 +74,7 @@ def _load_scenario(scenario_id: str):
 def _packet_from_scenario(scenario):
     """Build EvidencePacket + TwinResult from a hand-designed Scenario."""
     from analytics.evidence import EvidencePacket, LiveMetrics
+    from analytics.tactical_twin import pass_difficulty as _pass_difficulty
     from analytics.tactical_twin import score_pass
     from simulator.reference_data import build_players
 
@@ -67,9 +82,7 @@ def _packet_from_scenario(scenario):
     ev = scenario.actual_pass
     snap = scenario.snapshot
 
-    twin = score_pass(ev, snap, players)
-
-    # Neutral live metrics for scenario mode (no full event list)
+    twin = score_pass(ev, snap)
 
     minute = ev.match_clock_s // 60
     live = LiveMetrics(
@@ -90,6 +103,18 @@ def _packet_from_scenario(scenario):
         else None
     )
 
+    # Compute pass difficulty from event coordinates and opponent positions
+    opp_positions = [p for p in snap.positions if p.team_id != ev.team_id]
+    if (
+        ev.x is not None
+        and ev.y is not None
+        and ev.end_x is not None
+        and ev.end_y is not None
+    ):
+        pd = round(_pass_difficulty(ev.x, ev.y, ev.end_x, ev.end_y, opp_positions), 1)
+    else:
+        pd = 0.0
+
     packet = EvidencePacket(
         match_id=ev.match_id,
         moment_type="high_pressure_final_third_pass",
@@ -105,13 +130,13 @@ def _packet_from_scenario(scenario):
         twin_ghost_player_id=twin.best_alt_player_id,
         twin_components_actual=dict(twin.scores.components_actual),
         twin_components_ghost=dict(twin.scores.components_ghost),
-        pass_difficulty=0.0,
+        pass_difficulty=pd,
         ghost_shown=twin.ghost_shown,
         formula_version=twin.version,
         label="heuristic tactical option score, not a probability",
         passer_id=ev.player_id,
         actual_receiver_id=ev.receiver_id,
-        highlight_defenders=[],
+        highlight_defenders=list(twin.visual.highlight_defenders),
         actual_pass_length_m=round(actual_cand["length"], 1) if actual_cand else 0.0,
         ghost_pass_length_m=round(ghost_cand["length"], 1) if ghost_cand else None,
         actual_nearest_defender_m=(
@@ -155,7 +180,7 @@ def _packet_from_seed(seed: int, moment_k: int):
         ev = next((e for e in events if e.event_id == km.event_id), None)
         if ev is None:
             continue
-        twin = score_pass(ev, snap, players)
+        twin = score_pass(ev, snap)
         if twin.ghost_shown:
             ghost_moments.append((km, ev, snap, twin))
 
@@ -188,7 +213,9 @@ def main() -> None:
         "--moment", type=int, default=1, metavar="K", help="K-th ghost moment (default 1)"
     )
     p.add_argument("--fabric", action="store_true", help="Use FabricKql instead of LocalKql")
-    p.add_argument("--force-fail", action="store_true", help="Simulate timeout (template fallback)")
+    p.add_argument(
+        "--force-fail", action="store_true", help="Stub agents sleep past timeout (demos fallback)"
+    )
     args = p.parse_args()
 
     if args.seed is not None and args.scenario is not None:
@@ -205,6 +232,7 @@ async def _run(args: argparse.Namespace) -> None:
     if args.scenario:
         scenario = _load_scenario(args.scenario)
         packet, twin, roster = _packet_from_scenario(scenario)
+        events = [scenario.actual_pass]  # LocalKql needs at least the trigger event
     else:
         packet, twin, roster, events = _packet_from_seed(args.seed, args.moment)
 
@@ -212,19 +240,24 @@ async def _run(args: argparse.Namespace) -> None:
     if args.fabric:
         from agents.kql_tools import FabricKql
 
-        cluster = _require_env("FABRIC_KQL_CLUSTER")
-        database = _require_env("FABRIC_KQL_DATABASE")
+        cluster = _require_env("KQL_CLUSTER_URI")
+        database = _require_env("KQL_DATABASE")
         kql = FabricKql(cluster, database)
     else:
         from agents.kql_tools import LocalKql
 
         kql = LocalKql(events or [])
 
-    # Build chat client (or a dummy for --force-fail)
-    timeout_s = 0.0001 if args.force_fail else 30.0
+    # Build agents / client
     if args.force_fail:
-        client = object()  # never used; timeout fires first
+        # Stub agents sleep past the timeout so a real TimeoutError fires
+        stub = _SleeperAgent()
+        _agents: tuple | None = (stub, stub)
+        client = None
+        timeout_s = 0.5
     else:
+        _agents = None
+        timeout_s = 30.0
         from agent_framework_foundry import FoundryChatClient
         from azure.identity import AzureCliCredential
 
@@ -237,7 +270,7 @@ async def _run(args: argparse.Namespace) -> None:
     # Run workflow
     t_start = time.monotonic()
     overlay, log = await run_moment_workflow(
-        packet, twin, roster, kql, client, timeout_s=timeout_s
+        packet, twin, roster, kql, client, timeout_s=timeout_s, _agents=_agents
     )
     elapsed = round(time.monotonic() - t_start, 3)
 

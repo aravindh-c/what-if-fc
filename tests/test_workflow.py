@@ -190,7 +190,7 @@ def test_investigator_timeout_falls_back_to_template() -> None:
     assert isinstance(overlay, Overlay)
     assert overlay.narrative_source == NarrativeSource.TEMPLATE
     assert log["source"] == "template"
-    assert "investigator failed" in (log["fallback_reason"] or "")
+    assert "investigator timed out" in (log["fallback_reason"] or "")
 
 
 def test_director_timeout_falls_back_to_template() -> None:
@@ -210,7 +210,7 @@ def test_director_timeout_falls_back_to_template() -> None:
         )
     )
     assert overlay.narrative_source == NarrativeSource.TEMPLATE
-    assert "director attempt 1 failed" in (log["fallback_reason"] or "")
+    assert "director timed out" in (log["fallback_reason"] or "")
 
 
 # ---------------------------------------------------------------------------
