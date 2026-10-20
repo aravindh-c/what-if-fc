@@ -184,7 +184,7 @@ def _check_snapshots(kql_rows: list[dict], py_snapshots) -> list[str]:  # type: 
             )
         else:
             kql_pos = sorted(
-                (row.get("positions") or []),
+                (kql_rows[0].get("positions") or []),
                 key=lambda p: p.get("player_id", ""),
             )
             py_pos = sorted(
