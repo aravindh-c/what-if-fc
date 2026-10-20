@@ -343,3 +343,186 @@ def test_fan_same_numbers_as_analyst_passes() -> None:
     errors = validate_text(text, packet, _roster())
     at09_errors = [e for e in errors if "AT-09" in e]
     assert not at09_errors, at09_errors
+
+
+# ---------------------------------------------------------------------------
+# Regression tests for tightened validator
+# ---------------------------------------------------------------------------
+
+
+def _both_scores_fan(packet) -> NarrativeText:
+    return NarrativeText(
+        headline=f"Free player at minute {packet.moment_minute}!",
+        body=(
+            f"Actual score {packet.twin_actual_score:.2f}, "
+            f"ghost score {packet.twin_ghost_score:.2f}."
+        ),
+    )
+
+
+def test_next_does_not_trigger_banned_xt() -> None:
+    """'next', 'extra', 'text', 'exactly' must NOT trigger the xT ban."""
+    packet = _build_packet()
+    text = OverlayText(
+        analyst={
+            "en": NarrativeText(
+                headline=f"Ghost Pass at minute {packet.moment_minute}",
+                body=(
+                    f"Actual score {packet.twin_actual_score:.2f}. "
+                    "The next pass should go wide."
+                ),
+            )
+        },
+        fan={"en": _both_scores_fan(packet)},
+    )
+    errors = validate_text(text, packet, _roster())
+    assert not any("banned" in e for e in errors), errors
+
+
+def test_sentence_initial_caps_not_flagged() -> None:
+    """Capitalised words starting sentences must never be treated as names."""
+    packet = _build_packet()
+    text = OverlayText(
+        analyst={
+            "en": NarrativeText(
+                headline=f"Ghost Pass at minute {packet.moment_minute}",
+                body=(
+                    f"Actual score {packet.twin_actual_score:.2f}, "
+                    f"ghost score {packet.twin_ghost_score:.2f}. "
+                    "Meanwhile the winger stood unmarked. Brilliant space."
+                ),
+            )
+        },
+        fan={"en": _both_scores_fan(packet)},
+    )
+    errors = validate_text(text, packet, _roster())
+    name_errors = [e for e in errors if "not found in roster" in e or "capitalised" in e]
+    assert not name_errors, name_errors
+
+
+def test_invented_decimal_fails_precision_check() -> None:
+    """A decimal with no matching packet value at its own dp must fail AT-07."""
+    from analytics.evidence import EvidencePacket, LiveMetrics
+
+    live = LiveMetrics(
+        minute=35,
+        momentum_share={"T01": 0.55, "T02": 0.45},
+        pressure_index={"T01": 1.2, "T02": 0.8},
+        scoreline={"T01": 0, "T02": 0},
+    )
+    # No packet value rounds to 0.4 at 1 dp: components avoid 0.4, scores are 0.63/0.71
+    packet = EvidencePacket(
+        match_id="match_test",
+        moment_type="ghost_pass",
+        moment_minute=35,
+        moment_score=0.7,
+        event_ids=["ev_test001"],
+        live_metrics=live,
+        twin_version="twin-v1",
+        twin_weights={"T": 0.35, "P": 0.25, "F": 0.25, "R": 0.15},
+        twin_delta=0.08,
+        twin_actual_score=0.63,
+        twin_ghost_score=0.71,
+        twin_ghost_player_id="T01-P08",
+        twin_components_actual={"T": 0.5, "P": 0.3, "F": 0.7, "R": 0.2},
+        twin_components_ghost={"T": 0.7, "P": 0.6, "F": 0.9, "R": 0.1},
+        pass_difficulty=28.5,
+        ghost_shown=True,
+        formula_version="twin-v1",
+        label="heuristic tactical option score, not a probability",
+        passer_id="T01-P12",
+        actual_receiver_id="T01-P10",
+        highlight_defenders=["T02-P03"],
+        actual_pass_length_m=18.5,
+        ghost_pass_length_m=31.2,
+        actual_nearest_defender_m=3.1,
+        ghost_nearest_defender_m=8.3,
+    )
+    text = OverlayText(
+        analyst={
+            "en": NarrativeText(
+                headline=f"Ghost Pass at minute {packet.moment_minute}",
+                body=(
+                    f"Actual score {packet.twin_actual_score:.2f}. "
+                    "Option delta is 0.4."
+                ),
+            )
+        },
+        fan={
+            "en": NarrativeText(
+                headline=f"Free player at minute {packet.moment_minute}!",
+                body=f"Option score {packet.twin_actual_score:.2f}.",
+            )
+        },
+    )
+    errors = validate_text(text, packet, _roster())
+    assert any("0.4" in e or "AT-07" in e for e in errors), errors
+
+
+def test_percentage_passes_when_share_matches() -> None:
+    """'55%' must pass when a momentum share is 0.55 (0.55 × 100 = 55)."""
+    packet = _build_packet()  # momentum_share T01=0.55
+    text = OverlayText(
+        analyst={
+            "en": NarrativeText(
+                headline=f"Ghost Pass at minute {packet.moment_minute}",
+                body=(
+                    f"Actual score {packet.twin_actual_score:.2f}. "
+                    "Dominant team holds 55% of momentum."
+                ),
+            )
+        },
+        fan={"en": _both_scores_fan(packet)},
+    )
+    errors = validate_text(text, packet, _roster())
+    at07_errors = [e for e in errors if "AT-07" in e]
+    assert not at07_errors, at07_errors
+
+
+def test_forbidden_roster_player_fails() -> None:
+    """Mentioning a real roster player not in the moment must be flagged."""
+    roster = _roster()
+    packet = _build_packet(passer_id=roster[0].player_id, ghost_player_id=None)
+    # Use a player who is NOT the passer/receiver/ghost/defender
+    forbidden = next(
+        p for p in roster
+        if p.player_id not in {
+            packet.passer_id,
+            packet.actual_receiver_id,
+            packet.twin_ghost_player_id,
+            *packet.highlight_defenders,
+        }
+    )
+    text = OverlayText(
+        analyst={
+            "en": NarrativeText(
+                headline=f"Ghost Pass at minute {packet.moment_minute}",
+                body=(
+                    f"Actual score {packet.twin_actual_score:.2f}. "
+                    f"{forbidden.name} was involved."
+                ),
+            )
+        },
+        fan={"en": _both_scores_fan(packet)},
+    )
+    errors = validate_text(text, packet, roster)
+    assert any("not in this moment" in e for e in errors), errors
+
+
+def test_invented_name_mid_sentence_fails() -> None:
+    """A capitalized name mid-sentence that is not in the roster must fail."""
+    packet = _build_packet()
+    text = OverlayText(
+        analyst={
+            "en": NarrativeText(
+                headline=f"Ghost Pass at minute {packet.moment_minute}",
+                body=(
+                    f"Actual score {packet.twin_actual_score:.2f}. "
+                    "The pass was played to Marco Bellini."
+                ),
+            )
+        },
+        fan={"en": _both_scores_fan(packet)},
+    )
+    errors = validate_text(text, packet, _roster())
+    assert any("not found in roster" in e for e in errors), errors

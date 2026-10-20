@@ -18,14 +18,10 @@ from core.schemas import NarrativeText, OverlayText
 
 
 def _name(player_id: str | None, roster_map: dict[str, str]) -> str:
-    """Return the player's surname (last word of name) for concise text."""
+    """Return the player's full name (61 of 72 players share a surname)."""
     if player_id is None:
         return "the player"
-    full = roster_map.get(player_id)
-    if full is None:
-        return "the player"
-    parts = full.split()
-    return parts[-1] if parts else full
+    return roster_map.get(player_id, "the player")
 
 
 def _scoreline(packet) -> str:

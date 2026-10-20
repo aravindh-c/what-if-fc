@@ -3,7 +3,7 @@
 Acceptance-test references
 --------------------------
 AT-06 – every event_id cited in text must be in packet.event_ids
-AT-07 – every number must match a packet value after rounding to 0 or 1 dp
+AT-07 – every number must match a packet value at the same decimal precision
 AT-09 – fan numbers must be a strict subset of analyst numbers
 """
 
@@ -12,16 +12,30 @@ from __future__ import annotations
 import re
 from collections.abc import Sequence
 
-_BANNED_TERMS: tuple[str, ...] = (
+# Banned terms as whole-word regex patterns (case-insensitive).
+# \b prevents "xt" matching inside "next", "text", "extra", etc.
+_BANNED_PATTERNS: list[re.Pattern[str]] = [
+    re.compile(r"\bxg\b", re.IGNORECASE),
+    re.compile(r"\bxa\b", re.IGNORECASE),
+    re.compile(r"\bxt\b", re.IGNORECASE),
+    re.compile(r"\bexpected\s+goals\b", re.IGNORECASE),
+    re.compile(r"\bexpected\s+assists\b", re.IGNORECASE),
+    re.compile(r"\bprobability\b", re.IGNORECASE),
+    re.compile(r"%\s*chance\b", re.IGNORECASE),
+]
+
+_BANNED_LABELS: tuple[str, ...] = (
     "xg", "xa", "xt",
     "expected goals", "expected assists",
-    "probability",
-    "% chance",
+    "probability", "% chance",
 )
 
 _EVENT_ID_RE = re.compile(r"\bev_[A-Za-z0-9_]+\b")
 
-_NUMBER_RE = re.compile(r"\b\d+(?:\.\d+)?\b")
+# Captures an optional leading minus, a number, and an optional trailing % sign.
+# Negative lookbehind prevents matching digits inside identifiers like "T01-P08"
+# (where the minus is preceded by an alphanumeric character).
+_NUMBER_RE = re.compile(r"(?<![A-Za-z0-9_])(-?\d+(?:\.\d+)?)(%)?")
 
 # Lowercase words that may appear capitalised in English text but are NOT
 # player names from the fictional roster.
@@ -64,53 +78,54 @@ _FOOTBALL_STOPWORDS: frozenset[str] = frozenset(
         "offside", "penalty", "corner", "foul", "cross", "dribble",
         # overlay / narrative specific
         "delta", "index", "metric", "great", "run",
-        "watch", "level", "ahead", "behind", "equal", # fictional team names (split into tokens)
+        "watch", "level", "ahead", "behind", "equal",
+        # fictional team names (split into tokens)
         "kestrel", "vale", "thornfield", "rovers", "saltmere",
         "mariners", "copperhill", "athletic",
+        # extra sentence-starters that are not player names
+        "meanwhile", "brilliant", "relentless",
     }
 )
 
 
 # ---------------------------------------------------------------------------
-# Internal helpers
+# Internal helpers – numbers
 # ---------------------------------------------------------------------------
 
 
-def _extract_numbers(text: str) -> list[float]:
-    return [float(m) for m in _NUMBER_RE.findall(text)]
+def _num_dp(s: str) -> int:
+    """Return the number of decimal places in a numeric string."""
+    return len(s.split(".")[1]) if "." in s else 0
 
 
-def _extract_event_ids(text: str) -> list[str]:
-    return _EVENT_ID_RE.findall(text)
+def _extract_numbers_with_meta(text: str) -> list[tuple[float, int, bool]]:
+    """Extract (value, decimal_places, is_percentage) triples from text."""
+    results: list[tuple[float, int, bool]] = []
+    for m in _NUMBER_RE.finditer(text):
+        num_str = m.group(1)
+        is_pct = bool(m.group(2))
+        results.append((float(num_str), _num_dp(num_str), is_pct))
+    return results
 
 
-def _extract_potential_names(text: str) -> list[str]:
-    """Return capitalised alpha words (≥3 chars) that are not football stopwords."""
-    words = re.findall(r"\b[A-Z][a-z]{2,}\b", text)
-    return [w for w in words if w.lower() not in _FOOTBALL_STOPWORDS]
+def _packet_number_sets(
+    packet,
+) -> tuple[dict[int, set[float]], set[float]]:
+    """Return per-precision allowed sets and a percentage set.
 
-
-def _build_roster_name_tokens(roster: Sequence) -> set[str]:
-    tokens: set[str] = set()
-    for player in roster:
-        for part in player.name.lower().split():
-            for subpart in re.split(r"[-]", part):
-                if subpart:
-                    tokens.add(subpart)
-    return tokens
-
-
-def _packet_number_sets(packet) -> tuple[set[float], set[float]]:
-    """Return (values_rounded_to_0dp, values_rounded_to_1dp)."""
-    s0: set[float] = set()
-    s1: set[float] = set()
+    Returns (sets, pct_s0) where sets maps dp -> set of packet values rounded
+    to dp decimal places (dp in 0..3), and pct_s0 holds momentum/pressure
+    share values × 100 rounded to 0 dp (for "55%" style text).
+    """
+    sets: dict[int, set[float]] = {0: set(), 1: set(), 2: set(), 3: set()}
+    pct_s0: set[float] = set()
 
     def _add(v: float | int | None) -> None:
         if v is None:
             return
         f = float(v)
-        s0.add(round(f, 0))
-        s1.add(round(f, 1))
+        for dp in range(4):
+            sets[dp].add(round(f, dp))
 
     _add(packet.moment_minute)
     _add(packet.moment_score)
@@ -127,28 +142,95 @@ def _packet_number_sets(packet) -> tuple[set[float], set[float]]:
         _add(v)
     for v in packet.live_metrics.momentum_share.values():
         _add(v)
+        pct_s0.add(round(float(v) * 100, 0))
     for v in packet.live_metrics.pressure_index.values():
         _add(v)
+        pct_s0.add(round(float(v) * 100, 0))
     for v in packet.twin_components_actual.values():
         _add(v)
     for v in packet.twin_components_ghost.values():
         _add(v)
 
-    return s0, s1
+    return sets, pct_s0
 
 
-def _is_allowed(num: float, s0: set[float], s1: set[float]) -> bool:
-    return round(num, 0) in s0 or round(num, 1) in s1
+def _is_allowed_precise(
+    num: float,
+    dp: int,
+    is_pct: bool,
+    sets: dict[int, set[float]],
+    pct_s0: set[float],
+) -> bool:
+    """Return True if num is a valid packet-derived value at its own precision.
+
+    Integers (dp==0) compare at 0 dp; decimals compare ONLY at their own
+    precision (1 dp, 2 dp, …); never fall back to 0 dp for decimals.
+    Percentages compare against momentum/pressure share × 100 at 0 dp.
+    """
+    if is_pct:
+        return round(num, 0) in pct_s0
+    key = min(dp, 3)
+    return round(num, key) in sets[key]
 
 
 def _add_tool_results(
-    s0: set[float], s1: set[float], tool_results: list[dict]
+    sets: dict[int, set[float]],
+    pct_s0: set[float],
+    tool_results: list[dict],
 ) -> None:
     for result in tool_results:
         for v in result.values():
             if isinstance(v, (int, float)):
-                s0.add(round(float(v), 0))
-                s1.add(round(float(v), 1))
+                f = float(v)
+                for dp in range(4):
+                    sets[dp].add(round(f, dp))
+
+
+# ---------------------------------------------------------------------------
+# Internal helpers – player names
+# ---------------------------------------------------------------------------
+
+
+def _build_roster_name_tokens(roster: Sequence) -> set[str]:
+    tokens: set[str] = set()
+    for player in roster:
+        for part in player.name.lower().split():
+            for subpart in re.split(r"[-]", part):
+                if subpart:
+                    tokens.add(subpart)
+    return tokens
+
+
+def _build_allowed_player_ids(packet) -> set[str]:
+    """IDs of players whose names may appear in overlay text for this moment."""
+    ids: set[str] = set()
+    for field in ("passer_id", "actual_receiver_id", "twin_ghost_player_id"):
+        v = getattr(packet, field, None)
+        if v:
+            ids.add(v)
+    ids.update(packet.highlight_defenders)
+    return ids
+
+
+def _non_sentence_initial_caps(text: str) -> list[str]:
+    """Capitalised words (≥3 alpha chars) that are NOT at sentence/headline start.
+
+    The first word of the text, and the first word after a sentence-ending
+    token (one that contains . ! or ?), are treated as sentence-initial and
+    excluded.  This prevents false positives on words like "Score:",
+    "Meanwhile", or "Brilliant" when they open a sentence.
+    """
+    results: list[str] = []
+    sentence_start = True
+    for token in text.split():
+        # Strip leading/trailing non-alpha to get the bare word
+        word = re.sub(r"^[^A-Za-z]+|[^A-Za-z]+$", "", token)
+        if re.match(r"^[A-Z][a-z]{2,}$", word):
+            if not sentence_start:
+                results.append(word)
+        # If the original token contains . ! ? it ends a sentence
+        sentence_start = bool(re.search(r"[.!?]", token))
+    return results
 
 
 # ---------------------------------------------------------------------------
@@ -165,14 +247,14 @@ def validate_text(
     """Validate overlay text against the evidence packet.
 
     AT-06: every event_id cited must be in packet.event_ids
-    AT-07: every number must match a packet value after rounding to 0 or 1 dp
+    AT-07: every number must match a packet value at the same decimal precision
     AT-09: fan numbers must be a subset of analyst numbers
 
     Parameters
     ----------
     output:
-        An OverlayText instance (or duck-typed equivalent with .analyst and .fan dicts
-        mapping language code to NarrativeText with .headline and .body attributes).
+        An OverlayText instance (or duck-typed equivalent with .analyst and .fan
+        dicts mapping language code to NarrativeText).
     packet:
         An EvidencePacket instance.
     roster:
@@ -199,7 +281,7 @@ def validate_text(
         errors.append("fan English text ('en') is missing")
         return errors
 
-    # Length checks (redundant with schema but defensive)
+    # Length checks (redundant with schema but defensive against model_construct bypass)
     for label, nt in (("analyst", en_analyst), ("fan", en_fan)):
         if len(nt.headline) > 80:
             errors.append(
@@ -220,63 +302,88 @@ def validate_text(
     if getattr(output, "cue", None):
         all_pieces.append(output.cue)
 
-    # Banned terms
+    # Banned terms (whole-word regex, case-insensitive)
     for piece in all_pieces:
-        piece_lower = piece.lower()
-        for term in _BANNED_TERMS:
-            if term in piece_lower:
-                errors.append(f"banned term {term!r} found in text")
+        for pattern, label in zip(_BANNED_PATTERNS, _BANNED_LABELS, strict=True):
+            if pattern.search(piece):
+                errors.append(f"banned term {label!r} found in text")
 
     # Build allowed number sets
-    s0, s1 = _packet_number_sets(packet)
+    sets, pct_s0 = _packet_number_sets(packet)
     if tool_results:
-        _add_tool_results(s0, s1, tool_results)
+        _add_tool_results(sets, pct_s0, tool_results)
 
-    # Number validation (AT-07)
-    analyst_nums = _extract_numbers(en_analyst.headline + " " + en_analyst.body)
-    fan_nums = _extract_numbers(en_fan.headline + " " + en_fan.body)
+    # Number validation (AT-07) – precision-aware, no 0-dp fallback for decimals
+    analyst_nums_meta = _extract_numbers_with_meta(
+        en_analyst.headline + " " + en_analyst.body
+    )
+    fan_nums_meta = _extract_numbers_with_meta(
+        en_fan.headline + " " + en_fan.body
+    )
 
-    for num in analyst_nums:
-        if not _is_allowed(num, s0, s1):
+    for num, dp, is_pct in analyst_nums_meta:
+        if not _is_allowed_precise(num, dp, is_pct, sets, pct_s0):
             errors.append(
                 f"analyst text contains number {num} not matched in evidence packet (AT-07)"
             )
 
-    for num in fan_nums:
-        if not _is_allowed(num, s0, s1):
+    for num, dp, is_pct in fan_nums_meta:
+        if not _is_allowed_precise(num, dp, is_pct, sets, pct_s0):
             errors.append(
                 f"fan text contains number {num} not matched in evidence packet (AT-07)"
             )
 
-    # Fan numbers ⊆ analyst numbers (AT-09)
-    for fan_num in fan_nums:
-        matched = any(
-            round(fan_num, 0) == round(a_num, 0)
-            or round(fan_num, 1) == round(a_num, 1)
-            for a_num in analyst_nums
-        )
+    # Fan numbers ⊆ analyst numbers (AT-09) – compared at fan number's precision
+    for f_val, f_dp, f_is_pct in fan_nums_meta:
+        if f_is_pct:
+            f_target = round(f_val, 0)
+            matched = any(
+                a_is_pct and round(a_val, 0) == f_target
+                for a_val, _, a_is_pct in analyst_nums_meta
+            )
+        else:
+            key = min(f_dp, 3)
+            f_target = round(f_val, key)
+            matched = any(
+                not a_is_pct and round(a_val, key) == f_target
+                for a_val, _, a_is_pct in analyst_nums_meta
+            )
         if not matched:
             errors.append(
-                f"fan text number {fan_num} is not in analyst text (AT-09)"
+                f"fan text number {f_val} is not in analyst text (AT-09)"
             )
 
     # Event ID integrity (AT-06)
     valid_eids = set(packet.event_ids)
     for piece in all_pieces:
-        for eid in _extract_event_ids(piece):
+        for eid in _EVENT_ID_RE.findall(piece):
             if eid not in valid_eids:
                 errors.append(
                     f"event_id {eid!r} cited in text not found in packet.event_ids (AT-06)"
                 )
 
-    # Player name check
+    # Player name check (two rules)
     if roster:
-        name_tokens = _build_roster_name_tokens(roster)
+        all_roster_name_tokens = _build_roster_name_tokens(roster)
+        allowed_ids = _build_allowed_player_ids(packet)
+
+        # Rule A: a forbidden roster player's full name appears in text
+        forbidden_players = [p for p in roster if p.player_id not in allowed_ids]
+        combined_lower = " ".join(all_pieces).lower()
+        for fp in forbidden_players:
+            pattern = r"\b" + re.escape(fp.name.lower()) + r"\b"
+            if re.search(pattern, combined_lower):
+                errors.append(
+                    f"player {fp.name!r} appears in text but is not in this moment"
+                )
+
+        # Rule B: mid-sentence capitalised word not in roster or stopwords
         for piece in all_pieces:
-            for word in _extract_potential_names(piece):
-                if word.lower() not in name_tokens:
+            for word in _non_sentence_initial_caps(piece):
+                wl = word.lower()
+                if wl not in all_roster_name_tokens and wl not in _FOOTBALL_STOPWORDS:
                     errors.append(
-                        f"player name {word!r} not found in roster"
+                        f"capitalised word {word!r} not found in roster or stopwords"
                     )
 
     return errors
