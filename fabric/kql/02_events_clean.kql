@@ -1,18 +1,19 @@
-// EventsClean() – deduplicate by event_id and add a minute column.
+// EventsClean() – deduplicate by (match_id, event_id) and add a minute column.
 //
 // Coordinate rule: x,y are in the frame of the team IN POSSESSION (attacking
 // towards x=105). Defensive events (pressure, tackle, interception) are
 // recorded in the possessing team's frame, so "opponent half" for the
 // defending team means x < 52.5.
 //
-// De-duplication: Eventstream may deliver the same event more than once.
-// arg_max(EventEnqueuedUtcTime, *) keeps the most recently enqueued copy per
-// event_id, matching the Python analytics.metrics._dedup() behaviour.
+// De-duplication: Eventstream may deliver the same event more than once, and
+// event_ids like ev_000001 repeat across different matches. Keying on
+// (match_id, event_id) ensures events from separate matches are kept in full,
+// matching the Python analytics.metrics._dedup() behaviour.
 
 .create-or-alter function with (folder="whatif") EventsClean() {
     events
     | extend event_time = todatetime(event_time)
-    | summarize arg_max(EventEnqueuedUtcTime, *) by event_id
+    | summarize arg_max(EventEnqueuedUtcTime, *) by match_id, event_id
     | extend minute = match_clock_s / 60
 }
 

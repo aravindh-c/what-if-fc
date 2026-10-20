@@ -98,12 +98,17 @@ class KeyMoment:
 
 
 def _dedup(events: Sequence[MatchEvent]) -> list[MatchEvent]:
-    """Deduplicate by event_id, keeping the first occurrence (stable order)."""
-    seen: set[str] = set()
+    """Deduplicate by (match_id, event_id), keeping the first occurrence (stable order).
+
+    Keying on both fields preserves events from separate matches that share
+    short ids such as ev_000001, matching the KQL EventsClean() behaviour.
+    """
+    seen: set[tuple[str, str]] = set()
     out: list[MatchEvent] = []
     for ev in events:
-        if ev.event_id not in seen:
-            seen.add(ev.event_id)
+        key = (ev.match_id, ev.event_id)
+        if key not in seen:
+            seen.add(key)
             out.append(ev)
     return out
 

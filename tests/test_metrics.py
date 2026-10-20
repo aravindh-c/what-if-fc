@@ -563,6 +563,35 @@ def test_headline_ghost_eligible_reserved(seed: int) -> None:
         )
 
 
+# ---------------------------------------------------------------------------
+# Cross-match deduplication
+# ---------------------------------------------------------------------------
+
+
+def test_dedup_keeps_events_from_two_matches_with_shared_ids() -> None:
+    """Events from two different matches whose event_ids overlap are both kept.
+
+    Before the (match_id, event_id) fix, events from match_B with the same
+    event_ids as match_A would be silently dropped.
+    """
+    from analytics.metrics import _dedup
+
+    ev_a = _pass("ev_000001", 10, "T01", 50.0, 60.0)  # match_id = _MATCH
+    ev_b = MatchEvent(
+        event_id="ev_000001",      # same short id as ev_a
+        match_id="other_match",    # different match
+        scenario_id="test", seed=0,
+        event_time=_EPOCH, match_clock_s=10, period=1,
+        event_type=EventType.PASS, team_id="T01", player_id="T01-P01",
+        possession_id=0, x=50.0, y=34.0, end_x=60.0, end_y=34.0,
+        outcome=Outcome.COMPLETE, receiver_id="T01-P02",
+    )
+    result = _dedup([ev_a, ev_b])
+    assert len(result) == 2, "both matches must survive dedup"
+    assert result[0].match_id == _MATCH
+    assert result[1].match_id == "other_match"
+
+
 @pytest.mark.parametrize("seed", range(1, 11))
 def test_swing_requires_3_consecutive(seed: int) -> None:
     """Every momentum_swing in key_moments fired after 3 consecutive minutes of dominance."""
