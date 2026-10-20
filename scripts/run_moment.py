@@ -1,0 +1,259 @@
+"""Run the moment workflow for one key moment and print the overlay.
+
+Usage:
+    python -m scripts.run_moment --scenario missed_overlap
+    python -m scripts.run_moment --seed 7 --moment 1
+    python -m scripts.run_moment --seed 7 --moment 1 --fabric
+    python -m scripts.run_moment --scenario high_press_escape --force-fail
+
+Flags:
+    --scenario <id>   Load a hand-designed demo scenario by scenario_id
+    --seed N          Seed for the match simulator (use with --moment)
+    --moment K        K-th ghost-eligible headline moment (1-indexed)
+    --fabric          Use FabricKql instead of LocalKql
+    --force-fail      Simulate model timeout to demo template fallback
+
+Environment variables (required when using --fabric or without --force-fail):
+    FOUNDRY_PROJECT_ENDPOINT
+    FOUNDRY_MODEL
+"""
+
+from __future__ import annotations
+
+import argparse
+import asyncio
+import json
+import os
+import sys
+import time
+
+from dotenv import load_dotenv
+
+load_dotenv()
+
+
+def _require_env(name: str) -> str:
+    value = os.getenv(name, "").strip()
+    if not value:
+        print(f"ERROR: {name!r} is not set. Copy .env.example to .env.", file=sys.stderr)
+        sys.exit(1)
+    return value
+
+
+# ---------------------------------------------------------------------------
+# Scenario loading
+# ---------------------------------------------------------------------------
+
+
+def _load_scenario(scenario_id: str):
+    from simulator.scenarios import _build_scenarios  # noqa: PLC2701
+
+    scenarios = _build_scenarios()
+    match = [s for s in scenarios if s.scenario_id == scenario_id]
+    if not match:
+        ids = [s.scenario_id for s in scenarios]
+        print(f"ERROR: scenario {scenario_id!r} not found. Available: {ids}", file=sys.stderr)
+        sys.exit(1)
+    return match[0]
+
+
+def _packet_from_scenario(scenario):
+    """Build EvidencePacket + TwinResult from a hand-designed Scenario."""
+    from analytics.evidence import EvidencePacket, LiveMetrics
+    from analytics.tactical_twin import score_pass
+    from simulator.reference_data import build_players
+
+    players = build_players(7)
+    ev = scenario.actual_pass
+    snap = scenario.snapshot
+
+    twin = score_pass(ev, snap, players)
+
+    # Neutral live metrics for scenario mode (no full event list)
+
+    minute = ev.match_clock_s // 60
+    live = LiveMetrics(
+        minute=minute,
+        momentum_share={"T01": 0.5, "T02": 0.5},
+        pressure_index={"T01": 0.5, "T02": 0.5},
+        scoreline={"T01": 0, "T02": 0},
+    )
+
+    # Re-derive pass length and defender distance from twin candidates
+    actual_cand = next((c for c in twin.candidates if c.get("is_actual")), None)
+    ghost_cand = (
+        next(
+            (c for c in twin.candidates if c.get("player_id") == twin.best_alt_player_id),
+            None,
+        )
+        if twin.ghost_shown
+        else None
+    )
+
+    packet = EvidencePacket(
+        match_id=ev.match_id,
+        moment_type="high_pressure_final_third_pass",
+        moment_minute=minute,
+        moment_score=0.7,
+        event_ids=[ev.event_id],
+        live_metrics=live,
+        twin_version=twin.version,
+        twin_weights=twin.weights,
+        twin_delta=twin.delta,
+        twin_actual_score=twin.scores.actual,
+        twin_ghost_score=twin.scores.ghost,
+        twin_ghost_player_id=twin.best_alt_player_id,
+        twin_components_actual=dict(twin.scores.components_actual),
+        twin_components_ghost=dict(twin.scores.components_ghost),
+        pass_difficulty=0.0,
+        ghost_shown=twin.ghost_shown,
+        formula_version=twin.version,
+        label="heuristic tactical option score, not a probability",
+        passer_id=ev.player_id,
+        actual_receiver_id=ev.receiver_id,
+        highlight_defenders=[],
+        actual_pass_length_m=round(actual_cand["length"], 1) if actual_cand else 0.0,
+        ghost_pass_length_m=round(ghost_cand["length"], 1) if ghost_cand else None,
+        actual_nearest_defender_m=(
+            round(actual_cand["nearest_defender_m"], 1) if actual_cand else None
+        ),
+        ghost_nearest_defender_m=(
+            round(ghost_cand["nearest_defender_m"], 1) if ghost_cand else None
+        ),
+    )
+    return packet, twin, players
+
+
+# ---------------------------------------------------------------------------
+# Seed + moment loading
+# ---------------------------------------------------------------------------
+
+
+def _packet_from_seed(seed: int, moment_k: int):
+    """Build EvidencePacket + TwinResult from the K-th ghost moment in a seeded match."""
+    from analytics.evidence import build_evidence_packet
+    from analytics.metrics import key_moments
+    from analytics.tactical_twin import score_pass
+    from simulator.reference_data import build_players
+    from simulator.run import run_match
+
+    match_id, events, snapshots = run_match(seed, "T01", "T02")
+    players = build_players(seed)
+
+    snap_map = {s.snapshot_id: s for s in snapshots}
+
+    moments = key_moments(events)
+    ghost_moments = []
+    for km in moments:
+        if km.moment_type != "high_pressure_final_third_pass":
+            continue
+        if km.snapshot_id is None:
+            continue
+        snap = snap_map.get(km.snapshot_id)
+        if snap is None:
+            continue
+        ev = next((e for e in events if e.event_id == km.event_id), None)
+        if ev is None:
+            continue
+        twin = score_pass(ev, snap, players)
+        if twin.ghost_shown:
+            ghost_moments.append((km, ev, snap, twin))
+
+    if not ghost_moments:
+        print(f"ERROR: no ghost-eligible moments found for seed {seed}.", file=sys.stderr)
+        sys.exit(1)
+    if moment_k < 1 or moment_k > len(ghost_moments):
+        print(
+            f"ERROR: --moment {moment_k} out of range (1–{len(ghost_moments)}).",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    km, ev, snap, twin = ghost_moments[moment_k - 1]
+    packet = build_evidence_packet(km, events, snap, twin, match_id)
+    return packet, twin, players, events
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+
+def main() -> None:
+    p = argparse.ArgumentParser(description="Run the moment workflow and print the overlay.")
+    src = p.add_mutually_exclusive_group(required=True)
+    src.add_argument("--scenario", metavar="ID", help="Hand-designed scenario ID")
+    src.add_argument("--seed", type=int, metavar="N", help="Match simulator seed")
+    p.add_argument(
+        "--moment", type=int, default=1, metavar="K", help="K-th ghost moment (default 1)"
+    )
+    p.add_argument("--fabric", action="store_true", help="Use FabricKql instead of LocalKql")
+    p.add_argument("--force-fail", action="store_true", help="Simulate timeout (template fallback)")
+    args = p.parse_args()
+
+    if args.seed is not None and args.scenario is not None:
+        p.error("use --scenario OR --seed, not both")
+
+    asyncio.run(_run(args))
+
+
+async def _run(args: argparse.Namespace) -> None:
+    from agents.workflow import run_moment_workflow
+
+    # Build packet, twin and roster
+    events: list | None = None
+    if args.scenario:
+        scenario = _load_scenario(args.scenario)
+        packet, twin, roster = _packet_from_scenario(scenario)
+    else:
+        packet, twin, roster, events = _packet_from_seed(args.seed, args.moment)
+
+    # Build KQL backend
+    if args.fabric:
+        from agents.kql_tools import FabricKql
+
+        cluster = _require_env("FABRIC_KQL_CLUSTER")
+        database = _require_env("FABRIC_KQL_DATABASE")
+        kql = FabricKql(cluster, database)
+    else:
+        from agents.kql_tools import LocalKql
+
+        kql = LocalKql(events or [])
+
+    # Build chat client (or a dummy for --force-fail)
+    timeout_s = 0.0001 if args.force_fail else 30.0
+    if args.force_fail:
+        client = object()  # never used; timeout fires first
+    else:
+        from agent_framework_foundry import FoundryChatClient
+        from azure.identity import AzureCliCredential
+
+        client = FoundryChatClient(
+            project_endpoint=_require_env("FOUNDRY_PROJECT_ENDPOINT"),
+            model=_require_env("FOUNDRY_MODEL"),
+            credential=AzureCliCredential(),
+        )
+
+    # Run workflow
+    t_start = time.monotonic()
+    overlay, log = await run_moment_workflow(
+        packet, twin, roster, kql, client, timeout_s=timeout_s
+    )
+    elapsed = round(time.monotonic() - t_start, 3)
+
+    # Print results
+    print(json.dumps(overlay.model_dump(), indent=2))
+    print()
+    print(f"source   : {log['source']}")
+    print(f"attempts : {log['attempts']}")
+    print(f"seconds  : {elapsed}")
+    if log.get("fallback_reason"):
+        print(f"fallback : {log['fallback_reason']}")
+    if log.get("errors_attempt1"):
+        print(f"errors1  : {log['errors_attempt1']}")
+    if log.get("errors_attempt2"):
+        print(f"errors2  : {log['errors_attempt2']}")
+
+
+if __name__ == "__main__":
+    main()
