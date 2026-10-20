@@ -12,7 +12,13 @@ import json
 
 import pytest
 
-from simulator.publisher import _event_time, _parse_cs, run_publisher, sleep_duration
+from simulator.publisher import (
+    _event_time,
+    _interleave,
+    _parse_cs,
+    run_publisher,
+    sleep_duration,
+)
 
 # ---------------------------------------------------------------------------
 # sleep_duration
@@ -62,7 +68,9 @@ def test_parse_cs_entity_path_case_insensitive() -> None:
 # ---------------------------------------------------------------------------
 
 def test_dry_run_prints_three_messages(capsys: pytest.CaptureFixture) -> None:
-    run_publisher(seed=7, home_id="T01", away_id="T02", speed=0.0, dry_run=True)
+    run_publisher(
+        seed=7, home_id="T01", away_id="T02", speed=0.0, dry_run=True, send_snapshots=False
+    )
     out = capsys.readouterr().out
 
     assert "DRY RUN" in out
@@ -95,7 +103,9 @@ def test_dry_run_prints_three_messages(capsys: pytest.CaptureFixture) -> None:
 
 
 def test_dry_run_reports_total_count(capsys: pytest.CaptureFixture) -> None:
-    run_publisher(seed=7, home_id="T01", away_id="T02", speed=0.0, dry_run=True)
+    run_publisher(
+        seed=7, home_id="T01", away_id="T02", speed=0.0, dry_run=True, send_snapshots=False
+    )
     out = capsys.readouterr().out
     assert "Total events that would be sent:" in out
     # Extract the count and confirm it's a plausible match length
@@ -129,7 +139,9 @@ def test_dry_run_event_time_offsets_grow_with_clock(capsys: pytest.CaptureFixtur
     from datetime import UTC, datetime
 
     t_before = datetime.now(UTC)
-    run_publisher(seed=7, home_id="T01", away_id="T02", speed=0.0, dry_run=True)
+    run_publisher(
+        seed=7, home_id="T01", away_id="T02", speed=0.0, dry_run=True, send_snapshots=False
+    )
     out = capsys.readouterr().out
 
     lines = out.splitlines()
@@ -166,6 +178,83 @@ def test_dry_run_event_time_offsets_grow_with_clock(capsys: pytest.CaptureFixtur
     # run_start is set inside run_publisher after engine.run(), so it falls between
     # t_before and t_after; times[0] = run_start + clock[0] which may be nonzero.
     assert times[0] >= t_before
+
+
+# ---------------------------------------------------------------------------
+# _interleave: snapshot ordering and count
+# ---------------------------------------------------------------------------
+
+
+def _seed7_events_and_snaps():
+    from simulator.engine import MatchEngine
+    from simulator.reference_data import build_players, build_teams
+
+    teams = {t.team_id: t for t in build_teams()}
+    players = build_players(7)
+    engine = MatchEngine(
+        home_team=teams["T01"],
+        away_team=teams["T02"],
+        players=players,
+        seed=7,
+        match_id="match_s7_T01_T02",
+        scenario_id="live",
+    )
+    events, snapshots = engine.run()
+    return events, snapshots
+
+
+def test_snapshot_ordering_seed7() -> None:
+    """Every snapshot in the interleaved sequence precedes all events that reference it."""
+    events, snapshots = _seed7_events_and_snaps()
+    snap_by_id = {s.snapshot_id: s for s in snapshots}
+    seq = _interleave(events, snap_by_id)
+
+    snap_position: dict[str, int] = {}
+    for i, (kind, obj) in enumerate(seq):
+        if kind == "snapshot":
+            assert isinstance(obj, type(snapshots[0]))
+            snap_position[obj.snapshot_id] = i  # type: ignore[union-attr]
+
+    for i, (kind, obj) in enumerate(seq):
+        if kind == "event" and obj.snapshot_id:  # type: ignore[union-attr]
+            sp = snap_position.get(obj.snapshot_id)  # type: ignore[union-attr]
+            assert sp is not None, f"snapshot {obj.snapshot_id!r} missing from sequence"  # type: ignore[union-attr]
+            assert sp < i, (
+                f"snapshot {obj.snapshot_id!r} at position {sp} "  # type: ignore[union-attr]
+                f"is after event at position {i}"
+            )
+
+
+def test_snapshot_count_seed7() -> None:
+    """Seed-7 engine produces 611 snapshots; all appear in the interleaved sequence."""
+    events, snapshots = _seed7_events_and_snaps()
+    assert len(snapshots) == 611
+    snap_by_id = {s.snapshot_id: s for s in snapshots}
+    seq = _interleave(events, snap_by_id)
+    n_snaps = sum(1 for kind, _ in seq if kind == "snapshot")
+    assert n_snaps == 611
+
+
+def test_no_snapshots_flag_dry_run(capsys: pytest.CaptureFixture) -> None:
+    """--no-snapshots (send_snapshots=False) omits the snapshot section from dry-run output."""
+    run_publisher(
+        seed=7, home_id="T01", away_id="T02", speed=0.0,
+        dry_run=True, send_snapshots=False,
+    )
+    out = capsys.readouterr().out
+    assert "--- Snapshot" not in out
+    assert "Total snapshots" not in out
+
+
+def test_dry_run_shows_first_snapshot(capsys: pytest.CaptureFixture) -> None:
+    """Dry-run with send_snapshots=True prints the first snapshot header and count."""
+    run_publisher(
+        seed=7, home_id="T01", away_id="T02", speed=0.0,
+        dry_run=True, send_snapshots=True,
+    )
+    out = capsys.readouterr().out
+    assert "--- Snapshot" in out
+    assert "Total snapshots that would be sent: 611" in out
 
 
 def test_dry_run_does_not_import_eventhub(monkeypatch: pytest.MonkeyPatch) -> None:
