@@ -10,13 +10,27 @@ Fabric F2 is billed per running hour: pause the capacity when not in use.
 
 **Eventhouse:** `whatif` (region: UK South)
 **KQL database:** `whatif`
-**Eventstream:** `whatif-es`
+**Eventstream (events):** `whatif-es`
 
 | Component | Name | Notes |
 | --- | --- | --- |
 | Custom endpoint source | `src-simulator` | Event Hub-compatible; connection string in `.env` as `EVENTSTREAM_CONNECTION_STRING` |
 | Destination | `dst-events` | Table `events` in database `whatif`; format JSON |
 | Table | `events` | Schema created by the destination on first message |
+
+## Day 6 setup
+
+**Eventstream (snapshots):** `whatif-snapshots`
+
+| Component | Name | Notes |
+| --- | --- | --- |
+| Custom endpoint source | `src-snapshots` | Connection string in `.env` as `SNAPSHOT_EVENTSTREAM_CONNECTION_STRING` |
+| Destination | `dst-snapshots` | Table `snapshots` in database `whatif`; format JSON |
+| Table | `snapshots` | Fields: `snapshot_id`, `match_id`, `match_clock_s`, `positions` (dynamic array of 22 objects) |
+
+Position snapshots are sent by `simulator/publisher.py` just before the first event that
+references each `snapshot_id`.  Use `--no-snapshots` to skip snapshot streaming (events
+only).  See `fabric/kql/08_snapshots.kql` for `SnapshotsClean()` and `GetSnapshot()`.
 
 ### Streaming a match
 

@@ -155,6 +155,67 @@ def _check_key_moments(kql_rows: list[dict], py_rows) -> list[str]:  # type: ign
     return failures
 
 
+def _check_snapshots(kql_rows: list[dict], py_snapshots) -> list[str]:  # type: ignore[type-arg]
+    failures: list[str] = []
+
+    # Count
+    kql_count = len(kql_rows)
+    py_count = len(py_snapshots)
+    if kql_count != py_count:
+        failures.append(f"snapshots count: KQL={kql_count} vs Python={py_count}")
+
+    # Every row must have exactly 22 positions
+    for row in kql_rows:
+        positions = row.get("positions", [])
+        if not isinstance(positions, list) or len(positions) != 22:
+            failures.append(
+                f"snapshot {row.get('snapshot_id')}: expected 22 positions, "
+                f"got {len(positions) if isinstance(positions, list) else type(positions).__name__}"
+            )
+            break  # report first failure only
+
+    # Sample the first KQL snapshot and compare positions to Python exactly
+    if kql_rows and py_snapshots:
+        sample_id = kql_rows[0].get("snapshot_id")
+        py_snap = next((s for s in py_snapshots if s.snapshot_id == sample_id), None)
+        if py_snap is None:
+            failures.append(
+                f"snapshots: sampled snapshot {sample_id!r} not found in Python output"
+            )
+        else:
+            kql_pos = sorted(
+                (row.get("positions") or []),
+                key=lambda p: p.get("player_id", ""),
+            )
+            py_pos = sorted(
+                [
+                    {
+                        "player_id": p.player_id,
+                        "team_id": p.team_id,
+                        "x": round(float(p.x), 3),
+                        "y": round(float(p.y), 3),
+                    }
+                    for p in py_snap.positions
+                ],
+                key=lambda p: p["player_id"],
+            )
+            kql_norm = [
+                {
+                    "player_id": p.get("player_id", ""),
+                    "team_id": p.get("team_id", ""),
+                    "x": round(float(p.get("x", 0)), 3),
+                    "y": round(float(p.get("y", 0)), 3),
+                }
+                for p in kql_pos
+            ]
+            if kql_norm != py_pos:
+                failures.append(
+                    f"snapshots: positions mismatch for sampled snapshot {sample_id!r}"
+                )
+
+    return failures
+
+
 def _check_headline_moments(kql_rows: list[dict], py_rows) -> list[str]:  # type: ignore[type-arg]
     failures: list[str] = []
     kql_count = len(kql_rows)
@@ -218,7 +279,7 @@ def main(argv: list[str] | None = None) -> int:
         match_id=args.match_id,
         scenario_id="live",
     )
-    events, _ = engine.run()
+    events, py_snapshots = engine.run()
 
     py_stats     = match_stats(events)
     py_momentum  = momentum(events)
@@ -235,6 +296,10 @@ def main(argv: list[str] | None = None) -> int:
     kql_pressure  = _run_kql(client, database, f'PressureIndex("{mid}")')
     kql_moments   = _run_kql(client, database, f'KeyMoments("{mid}")')
     kql_headlines = _run_kql(client, database, f'HeadlineMoments("{mid}")')
+    kql_snapshots = _run_kql(
+        client, database,
+        f'SnapshotsClean() | where match_id == "{mid}"',
+    )
 
     # --- Comparison --------------------------------------------------------
     all_failures: list[str] = []
@@ -244,6 +309,7 @@ def main(argv: list[str] | None = None) -> int:
         ("pressure_index",   _check_pressure(kql_pressure,        py_pressure)),
         ("key_moments",      _check_key_moments(kql_moments,      py_moments)),
         ("headline_moments", _check_headline_moments(kql_headlines, py_headlines)),
+        ("snapshots",        _check_snapshots(kql_snapshots,      py_snapshots)),
     ]
 
     for name, failures in checks:

@@ -1,0 +1,29 @@
+// Snapshot KQL functions – position snapshots table (Day 6A).
+//
+// Expected table schema (set by the Eventstream Lakehouse destination):
+//   snapshot_id:                string
+//   match_id:                   string
+//   match_clock_s:              long
+//   positions:                  dynamic  -- JSON array of 22 PlayerPosition objects;
+//                                           each has player_id, team_id, role, x, y
+//   EventProcessedUtcTime:      datetime  (Eventstream system column)
+//   EventEnqueuedUtcTime:       datetime  (Eventstream system column)
+//   PartitionId:                long      (Eventstream system column)
+//
+// De-duplication: same rationale as EventsClean() – key on (match_id, snapshot_id).
+
+.create-or-alter function with (folder="whatif") SnapshotsClean() {
+    snapshots
+    | summarize arg_max(EventEnqueuedUtcTime, *) by match_id, snapshot_id
+}
+
+// GetSnapshot – return a single snapshot row with its positions array.
+//
+// Example: GetSnapshot("match_s7_T01_T02", "sn_000042")
+.create-or-alter function with (folder="whatif")
+    GetSnapshot(p_match_id:string, p_snapshot_id:string)
+{
+    SnapshotsClean()
+    | where match_id == p_match_id and snapshot_id == p_snapshot_id
+    | project snapshot_id, match_id, match_clock_s, positions
+}
