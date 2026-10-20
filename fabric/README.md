@@ -29,3 +29,39 @@ Use `--dry-run` to print the first 3 messages without connecting.
 ### After each session
 
 Pause capacity **plhackf2** in the Fabric portal to avoid unnecessary charges.
+
+## Day 5 setup
+
+**Lakehouse:** `whatif_lh` (schemas enabled; table `dbo.bronze_events`)
+
+### Eventstream destination
+
+| Field | Value |
+| --- | --- |
+| Destination name | `dst-bronz` |
+| Type | Lakehouse |
+| Lakehouse | `whatif_lh` |
+| Table | `bronze_events` |
+| Input format | JSON |
+| Batch size | 100 000 rows or 60 s (whichever comes first) |
+
+The destination only targets Delta reader 1 / writer 2. Run
+`fabric/lakehouse/01_bronze_events.sql` in a Fabric notebook (cell magic `%%sql`)
+**before** activating the destination to pin the protocol; otherwise the Eventstream
+rejects the table with `Unsupported writer features: invariants`.
+
+### Verification (SQL analytics endpoint)
+
+```sql
+-- Run against the whatif_lh SQL analytics endpoint (not in a Spark notebook)
+SELECT TOP 10 *
+FROM dbo.bronze_events
+ORDER BY match_clock_s DESC;
+```
+
+### Tips
+
+- Use the **SQL analytics endpoint** for ad-hoc checks; F2 fits only one Spark session
+  at a time, so running a notebook blocks the Eventstream writer.
+- Stop notebook sessions after use (**Stop session** in the notebook toolbar) to free
+  the Spark slot for the Eventstream destination.
