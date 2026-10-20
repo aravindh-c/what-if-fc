@@ -15,11 +15,14 @@ from __future__ import annotations
 import os
 from typing import Any
 
+from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 
 from api.replay_store import ReplayStore, make_store
+
+load_dotenv()
 
 # ---------------------------------------------------------------------------
 # App setup

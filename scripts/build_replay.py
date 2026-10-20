@@ -36,10 +36,14 @@ import asyncio
 import dataclasses
 import hashlib
 import json
+import os
+import sys
 import time
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+
+from dotenv import load_dotenv
 
 # ---------------------------------------------------------------------------
 # Overlay ID helper
@@ -475,8 +479,6 @@ async def _main(args: argparse.Namespace) -> None:
     timeout_s = 30.0
 
     if use_agents:
-        import os
-
         from agent_framework_foundry import FoundryChatClient
         from azure.identity import AzureCliCredential
 
@@ -556,6 +558,8 @@ async def _main(args: argparse.Namespace) -> None:
 
 
 def main() -> None:
+    load_dotenv()
+
     p = argparse.ArgumentParser(description="Build replay bundles for all matches and scenarios.")
     mode = p.add_mutually_exclusive_group()
     mode.add_argument(
@@ -573,6 +577,28 @@ def main() -> None:
     )
     p.add_argument("--upload", action="store_true", help="Upload bundles to Azure Blob storage")
     args = p.parse_args()
+
+    if args.upload and not os.environ.get("REPLAY_STORAGE_ACCOUNT_URL", "").strip():
+        print(
+            "error: --upload requires REPLAY_STORAGE_ACCOUNT_URL to be set"
+            " in the environment or .env file",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    if args.agents:
+        missing = [
+            v for v in ("FOUNDRY_PROJECT_ENDPOINT", "FOUNDRY_MODEL")
+            if not os.environ.get(v, "").strip()
+        ]
+        if missing:
+            for v in missing:
+                print(
+                    f"error: --agents requires {v} to be set"
+                    " in the environment or .env file",
+                    file=sys.stderr,
+                )
+            sys.exit(1)
 
     t0 = time.monotonic()
     asyncio.run(_main(args))
