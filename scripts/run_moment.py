@@ -93,8 +93,8 @@ def _packet_from_scenario(scenario):
     minute = ev.match_clock_s // 60
     live = LiveMetrics(
         minute=minute,
-        momentum_share={"T01": 0.5, "T02": 0.5},
-        pressure_index={"T01": 0.5, "T02": 0.5},
+        momentum_share={},
+        pressure_index={},
         scoreline={"T01": 0, "T02": 0},
     )
 
@@ -286,6 +286,9 @@ async def _run(args: argparse.Namespace) -> None:
     print(f"source   : {log['source']}")
     print(f"attempts : {log['attempts']}")
     print(f"seconds  : {elapsed}")
+    step_labels = ["investigator", "director_1", "director_2"]
+    for label, dur in zip(step_labels, log["durations_s"], strict=False):
+        print(f"  {label}: {dur}s")
     if log.get("fallback_reason"):
         print(f"fallback : {log['fallback_reason']}")
     if log.get("errors_attempt1"):

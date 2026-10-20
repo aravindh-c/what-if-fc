@@ -118,8 +118,21 @@ def make_director(client: Any) -> Any:
 # ---------------------------------------------------------------------------
 
 
-def _packet_summary(packet: Any) -> dict:
-    """Compact dict of key numbers and IDs for agent input."""
+def _packet_summary(packet: Any, players: dict | None = None) -> dict:
+    """Compact dict of key numbers and IDs for agent input.
+
+    Scores are rounded to 2 dp and distances to 1 dp so agents write values
+    at the expected precision.  Player names are resolved from `players` when
+    provided so the Director does not need to look them up.
+    """
+    def _r1(v: float | None) -> float | None:
+        return round(v, 1) if v is not None else None
+
+    def _name(pid: str | None) -> str | None:
+        if not pid or not players:
+            return None
+        return players.get(pid, {}).get("name")
+
     return {
         "match_id": packet.match_id,
         "moment_type": packet.moment_type,
@@ -130,10 +143,17 @@ def _packet_summary(packet: Any) -> dict:
         "actual_receiver_id": packet.actual_receiver_id,
         "twin_ghost_player_id": packet.twin_ghost_player_id,
         "highlight_defenders": list(packet.highlight_defenders),
-        "twin_actual_score": packet.twin_actual_score,
-        "twin_ghost_score": packet.twin_ghost_score,
-        "twin_delta": packet.twin_delta,
-        "pass_difficulty": packet.pass_difficulty,
+        "passer_name": _name(packet.passer_id),
+        "actual_receiver_name": _name(packet.actual_receiver_id),
+        "ghost_receiver_name": _name(packet.twin_ghost_player_id),
+        "twin_actual_score": round(packet.twin_actual_score, 2),
+        "twin_ghost_score": round(packet.twin_ghost_score, 2),
+        "twin_delta": round(packet.twin_delta, 2),
+        "pass_difficulty": _r1(packet.pass_difficulty),
+        "actual_pass_length_m": _r1(packet.actual_pass_length_m),
+        "ghost_pass_length_m": _r1(packet.ghost_pass_length_m),
+        "actual_nearest_defender_m": _r1(packet.actual_nearest_defender_m),
+        "ghost_nearest_defender_m": _r1(packet.ghost_nearest_defender_m),
         "momentum_share": dict(packet.live_metrics.momentum_share),
         "pressure_index": dict(packet.live_metrics.pressure_index),
         "scoreline": dict(packet.live_metrics.scoreline),
@@ -263,9 +283,9 @@ async def run_moment_workflow(
         "fallback_reason": None,
     }
 
-    psum = _packet_summary(packet)
     # Agents see only moment-relevant players; full roster goes to the validator.
     players = _moment_players_map(packet, roster)
+    psum = _packet_summary(packet, players)
 
     # ------------------------------------------------------------------
     # Step 1: Investigator
