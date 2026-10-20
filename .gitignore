@@ -22,7 +22,7 @@ web/.vite/
 
 # Generated match data (keep small samples only)
 data/generated/
-data/replay/*.jsonl
+data/replay/*.json
 !data/replay/.gitkeep
 
 # OS / editors
