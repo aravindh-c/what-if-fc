@@ -428,6 +428,23 @@ async def _assemble_bundle(
         overlays_json.append(ov_dict)
         n_goal += 1
 
+    # Build possession-frame lookup for the frontend coordinate transform.
+    # snapshots: team_id of the event that references each snapshot (possessing team).
+    # overlays: team_id of the pass / goal event (first event_id in evidence).
+    events_by_id: dict[str, Any] = {e.event_id: e for e in events}
+    snap_team: dict[str, str] = {}
+    for ev in events:
+        if ev.snapshot_id and ev.team_id:
+            snap_team[ev.snapshot_id] = ev.team_id
+    ov_team: dict[str, str] = {}
+    for ov_dict in overlays_json:
+        ov_id = ov_dict["overlay_id"]
+        ev_ids_list = ov_dict.get("evidence", {}).get("event_ids", [])
+        if ev_ids_list:
+            src_ev = events_by_id.get(ev_ids_list[0])
+            if src_ev is not None and src_ev.team_id:
+                ov_team[ov_id] = src_ev.team_id
+
     bundle: dict[str, Any] = {
         "meta": meta,
         "events": [e.model_dump(by_alias=True, mode="json") for e in events],
@@ -435,6 +452,7 @@ async def _assemble_bundle(
         "metrics": _metrics_bundle(events),
         "headline_moments": [dataclasses.asdict(km) for km in moments],
         "overlays": overlays_json,
+        "frames": {"snapshots": snap_team, "overlays": ov_team},
     }
 
     counts = {
