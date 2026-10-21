@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { positionsAt, ballAt, scoreAt, maxClockS } from './playback.ts'
+import { positionsAt, ballAt, scoreAt, maxClockS, tickStep } from './playback.ts'
 import type { ReplayBundle, EventData, SnapshotData } from '../types.ts'
 
 // ---------------------------------------------------------------------------
@@ -208,5 +208,46 @@ describe('maxClockS', () => {
       makeEvent({ event_id: 'e2', match_clock_s: 200 }),
     ]
     expect(maxClockS(makeBundle({ events }))).toBe(200)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// tickStep — overlay crossing pauses playback
+// ---------------------------------------------------------------------------
+
+describe('tickStep', () => {
+  const overlays = [
+    { overlay_id: 'ov1', match_clock_s: 50 },
+    { overlay_id: 'ov2', match_clock_s: 120 },
+  ]
+
+  it('detects overlay when clock crosses overlay time', () => {
+    // at speed=30, elapsed=1s: 40 + 30 = 70 > 50 → hit ov1
+    const r = tickStep(40, 1, 30, 200, overlays, null)
+    expect(r.hitId).toBe('ov1')
+    expect(r.nextClock).toBe(50)
+    expect(r.done).toBe(false)
+  })
+
+  it('does not re-trigger the already-triggered overlay', () => {
+    const r = tickStep(40, 1, 30, 200, overlays, 'ov1')
+    expect(r.hitId).toBeNull()
+    expect(r.nextClock).toBeCloseTo(70)
+  })
+
+  it('advances clock when no overlay is hit', () => {
+    const r = tickStep(10, 1, 30, 200, overlays, null)
+    // 10 + 30 = 40 < 50 → no hit
+    expect(r.hitId).toBeNull()
+    expect(r.nextClock).toBeCloseTo(40)
+    expect(r.done).toBe(false)
+  })
+
+  it('reports done when clock reaches duration', () => {
+    const r = tickStep(190, 1, 30, 200, overlays, null)
+    // raw = 190 + 30 = 220 > 200 → capped to 200; no overlays in [190..200]
+    expect(r.hitId).toBeNull()
+    expect(r.nextClock).toBe(200)
+    expect(r.done).toBe(true)
   })
 })

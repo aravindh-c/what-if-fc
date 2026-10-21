@@ -151,3 +151,36 @@ export function maxClockS(bundle: ReplayBundle): number {
   if (bundle.events.length === 0) return 0
   return bundle.events[bundle.events.length - 1].match_clock_s
 }
+
+// ---------------------------------------------------------------------------
+// RAF tick step — pure function, side-effect free, safe under StrictMode
+// ---------------------------------------------------------------------------
+
+/**
+ * Computes the next clock position for one RAF frame.
+ * Returns the next clock, the first untriggered overlay crossed (if any),
+ * and whether the end of the match was reached.
+ * All hit detection happens here, outside any setState updater.
+ */
+export function tickStep(
+  clockS: number,
+  elapsedS: number,
+  speed: number,
+  durationS: number,
+  overlays: ReadonlyArray<{ overlay_id: string; match_clock_s: number }>,
+  triggeredId: string | null,
+): { nextClock: number; hitId: string | null; done: boolean } {
+  const raw = clockS + elapsedS * speed
+  const capped = Math.min(raw, durationS)
+
+  const hit = overlays.find(ov => {
+    if (ov.overlay_id === triggeredId) return false
+    return ov.match_clock_s > clockS && ov.match_clock_s <= capped
+  })
+
+  return {
+    nextClock: hit ? hit.match_clock_s : capped,
+    hitId: hit?.overlay_id ?? null,
+    done: !hit && capped >= durationS,
+  }
+}
