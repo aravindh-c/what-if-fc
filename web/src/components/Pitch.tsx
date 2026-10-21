@@ -7,6 +7,7 @@ interface PitchProps {
   bundle: ReplayBundle
   activeOverlay: OverlayData | null
   homeTeam: string
+  animKey?: number
 }
 
 const L = 105, W = 68
@@ -31,7 +32,7 @@ const ARC_LEFT_TOP = W / 2 - ARC_Y_OFFSET    // 26.68
 const ARC_LEFT_BOT = W / 2 + ARC_Y_OFFSET    // 41.32
 const ARC_RIGHT_X = L - PENALTY_DEPTH         // 88.5
 
-export default function Pitch({ positions, ball, bundle, activeOverlay, homeTeam }: PitchProps) {
+export default function Pitch({ positions, ball, bundle, activeOverlay, homeTeam, animKey = 0 }: PitchProps) {
   const overlayTeamId = activeOverlay
     ? bundle.frames.overlays[activeOverlay.overlay_id]
     : null
@@ -124,9 +125,10 @@ export default function Pitch({ positions, ball, bundle, activeOverlay, homeTeam
         <path d="M 104 68 A 1 1 0 0 0 105 67" />
       </g>
 
-      {/* Ghost pass line */}
+      {/* Ghost pass line — keyed so animKey re-mounts and restarts the animation */}
       {dispGhostFrom && dispGhostTo && (
         <line
+          key={`ghost-line-${animKey}`}
           x1={dispGhostFrom[0]} y1={dispGhostFrom[1]}
           x2={dispGhostTo[0]}   y2={dispGhostTo[1]}
           stroke="#BFE8FF" strokeWidth="0.6"
@@ -151,9 +153,9 @@ export default function Pitch({ positions, ball, bundle, activeOverlay, homeTeam
         const isTag = tagIds.has(p.playerId)
         const isGhostTarget = ghostPass?.receiver_id === p.playerId
         const meta = playerMap[p.playerId]
-        const initials = meta
-          ? meta.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2)
-          : '?'
+        const label = meta?.shirt_number != null
+          ? String(meta.shirt_number)
+          : (meta ? meta.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2) : '?')
 
         return (
           <g key={p.playerId}>
@@ -161,7 +163,9 @@ export default function Pitch({ positions, ball, bundle, activeOverlay, homeTeam
               <circle cx={p.x} cy={p.y} r={2.6}
                 fill="none" stroke="#F2F5EE" strokeWidth="0.4" opacity="0.7" />
             )}
-            <circle cx={p.x} cy={p.y} r={2}
+            <circle
+              key={isGhostTarget ? `${p.playerId}-pulse-${animKey}` : p.playerId}
+              cx={p.x} cy={p.y} r={2}
               fill={color} stroke="#0f1923" strokeWidth="0.3"
               className={isGhostTarget ? 'ghost-receiver-pulse' : ''}
             />
@@ -179,7 +183,7 @@ export default function Pitch({ positions, ball, bundle, activeOverlay, homeTeam
               fill="#0f1923" fontWeight="700"
               style={{ pointerEvents: 'none' }}
             >
-              {initials}
+              {label}
             </text>
           </g>
         )

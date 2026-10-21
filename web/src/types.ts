@@ -9,12 +9,15 @@ export interface PlayerMeta {
   name: string
   role: string
   team_id: string
+  shirt_number?: number
 }
 
 export interface BundleMeta {
   replay_id: string
   kind: 'match' | 'scenario'
   title: string
+  scenario_description?: string
+  scenario_why?: string
   teams: Record<string, TeamMeta>
   players: Record<string, PlayerMeta>
   built_at: string

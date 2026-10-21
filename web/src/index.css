@@ -80,7 +80,6 @@ body {
   font-weight: 700;
   letter-spacing: 0.05em;
   color: var(--home-color);
-  text-transform: uppercase;
 }
 
 .app-header-title {
@@ -194,8 +193,7 @@ body {
 
 .picker-card-kind {
   font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.04em;
   color: var(--text-muted);
 }
 
@@ -303,8 +301,7 @@ body {
 .moment-score-label {
   font-size: 0.7rem;
   color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
   align-self: end;
 }
 
@@ -381,6 +378,20 @@ body {
 .back-btn:hover, .back-btn:focus-visible {
   color: var(--text);
   border-color: var(--border);
+}
+
+.btn-ghost-replay {
+  margin-top: 12px;
+  width: 100%;
+  border-color: var(--ghost-color);
+  color: var(--ghost-color);
+  background: transparent;
+}
+
+.btn-ghost-replay:hover, .btn-ghost-replay:focus-visible {
+  background: rgba(191, 232, 255, 0.08);
+  border-color: var(--ghost-color);
+  outline-color: var(--ghost-color);
 }
 
 /* Playback controls */

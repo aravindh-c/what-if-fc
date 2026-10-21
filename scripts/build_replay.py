@@ -175,7 +175,12 @@ def _build_match_replay(seed: int, home_id: str, away_id: str) -> dict[str, Any]
             for t in (teams[home_id], teams[away_id])
         },
         "players": {
-            p.player_id: {"name": p.name, "role": p.role, "team_id": p.team_id}
+            p.player_id: {
+                "name": p.name,
+                "role": p.role,
+                "team_id": p.team_id,
+                "shirt_number": p.shirt_number,
+            }
             for p in players
         },
         "built_at": datetime.now(UTC).isoformat(),
@@ -321,6 +326,8 @@ def _build_scenario_replay(scenario_id: str) -> dict[str, Any]:
         "replay_id": f"scenario_{scenario_id}",
         "kind": "scenario",
         "title": scen.title,
+        "scenario_description": scen.description,
+        "scenario_why": scen.why,
         "teams": {
             t.team_id: {
                 "name": t.name,
@@ -332,7 +339,12 @@ def _build_scenario_replay(scenario_id: str) -> dict[str, Any]:
             if t is not None
         },
         "players": {
-            p.player_id: {"name": p.name, "role": p.role, "team_id": p.team_id}
+            p.player_id: {
+                "name": p.name,
+                "role": p.role,
+                "team_id": p.team_id,
+                "shirt_number": p.shirt_number,
+            }
             for p in players
         },
         "built_at": datetime.now(UTC).isoformat(),

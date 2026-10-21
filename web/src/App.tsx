@@ -155,6 +155,7 @@ export default function App() {
   const [bundle, setBundle] = useState<ReplayBundle | null>(null)
   const [bundleLoading, setBundleLoading] = useState(false)
   const [bundleError, setBundleError] = useState<string | null>(null)
+  const [animKey, setAnimKey] = useState(0)
 
   const { clockS, playing, speed, activeOverlay, toggle, play, setSpeed, seek, showMoment } = usePlayback(bundle)
 
@@ -231,54 +232,72 @@ export default function App() {
     )
   }
 
-  const homeTeam = Object.keys(bundle!.meta.teams)[0] ?? ''
-  const positions = positionsAt(clockS, bundle!)
-  const ball = ballAt(clockS, bundle!.events, homeTeam)
-  const score = scoreAt(clockS, bundle!)
-  const dur = maxClockS(bundle!)
-  const subtitle = seedSubtitle(bundle!.meta.replay_id)
+  const b = bundle!
+  const isScenario = b.meta.kind === 'scenario'
+  const homeTeam = Object.keys(b.meta.teams)[0] ?? ''
+  const positions = positionsAt(clockS, b)
+  const ball = ballAt(clockS, b.events, homeTeam)
+  const score = scoreAt(clockS, b)
+  const dur = maxClockS(b)
+
+  const headerTitle = isScenario ? b.meta.title : replayTitle(b)
+  const headerSub   = isScenario ? (b.meta.scenario_why ?? null) : seedSubtitle(b.meta.replay_id)
 
   return (
     <div className="app-root">
       <header className="app-header">
         <button className="btn back-btn" onClick={closeBundle} aria-label="Back to replay list">← Back</button>
         <div className="app-header-title">
-          <span className="app-header-name">{replayTitle(bundle!)}</span>
-          {subtitle && <span className="app-header-sub">{subtitle}</span>}
+          <span className="app-header-name">{headerTitle}</span>
+          {headerSub && <span className="app-header-sub">{headerSub}</span>}
         </div>
       </header>
       <main className="app-main">
-        <Scoreboard bundle={bundle!} score={score} clockS={clockS} />
+        {!isScenario && <Scoreboard bundle={b} score={score} clockS={clockS} />}
         <div className="replay-body">
           <div className="pitch-wrap">
             <Pitch
               positions={positions}
               ball={ball}
-              bundle={bundle!}
+              bundle={b}
               activeOverlay={activeOverlay}
               homeTeam={homeTeam}
+              animKey={animKey}
             />
           </div>
           <div className="moment-panel">
             {activeOverlay
-              ? <MomentCard overlay={activeOverlay} bundle={bundle!} />
+              ? <MomentCard overlay={activeOverlay} bundle={b} />
               : <p className="moment-panel-empty">Play the match to see key moments</p>
             }
+            {isScenario && (
+              <button
+                className="btn btn-ghost-replay"
+                onClick={() => setAnimKey(k => k + 1)}
+                aria-label="Replay the Ghost Pass animation"
+              >
+                Replay the Ghost Pass
+              </button>
+            )}
           </div>
         </div>
-        <PlaybackControls
-          playing={playing}
-          speed={speed}
-          onToggle={toggle}
-          onSpeed={setSpeed}
-        />
-        <Timeline
-          durationS={dur}
-          clockS={clockS}
-          overlays={bundle!.overlays}
-          onSeek={seek}
-          onPlay={play}
-        />
+        {!isScenario && (
+          <PlaybackControls
+            playing={playing}
+            speed={speed}
+            onToggle={toggle}
+            onSpeed={setSpeed}
+          />
+        )}
+        {!isScenario && (
+          <Timeline
+            durationS={dur}
+            clockS={clockS}
+            overlays={b.overlays}
+            onSeek={seek}
+            onPlay={play}
+          />
+        )}
       </main>
     </div>
   )
