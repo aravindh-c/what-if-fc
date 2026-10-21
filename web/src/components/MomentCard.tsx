@@ -16,12 +16,17 @@ export default function MomentCard({ overlay, bundle }: MomentCardProps) {
       <p className="moment-headline">{headline}</p>
       {body && <p className="moment-fan">{body}</p>}
       {scores && overlay.moment_type === 'ghost_pass' && (
-        <div className="moment-scores" aria-label="Pass quality scores">
-          <span className="moment-score-label">Actual pass</span>
-          <span className="moment-score-value">{scores.actual.toFixed(2)}</span>
-          <span className="moment-score-label">Better option</span>
-          <span className="moment-score-value ghost">{scores.ghost.toFixed(2)}</span>
-        </div>
+        <>
+          <div className="moment-scores" aria-label="Pass quality scores">
+            <span className="moment-score-label">Actual pass</span>
+            <span className="moment-score-value">{scores.actual.toFixed(2)}</span>
+            <span className="moment-score-label">Better option</span>
+            <span className="moment-score-value ghost">{scores.ghost.toFixed(2)}</span>
+          </div>
+          <p className="moment-score-explainer">
+            Tactical option score, 0 to 1: how threatening, forward, open and safe a pass was. Higher is better. Not a probability.
+          </p>
+        </>
       )}
       {overlay.moment_type === 'goal' && (() => {
         const evId = overlay.evidence.event_ids[0]

@@ -16,11 +16,23 @@ export default function Scoreboard({ bundle, score, clockS }: ScoreboardProps) {
 
   return (
     <div className="scoreboard" aria-label="Scoreboard">
-      <span className="scoreboard-team home">{home?.short_name ?? homeId}</span>
+      <span className="scoreboard-team home">
+        <span className="team-name-row">
+          <span className="team-dot home-dot" aria-hidden="true" />
+          {home?.short_name ?? homeId}
+        </span>
+        <span className="team-dir">attacks right →</span>
+      </span>
       <span className="scoreboard-score" aria-live="polite">
         {score[homeId] ?? 0}–{score[awayId] ?? 0}
       </span>
-      <span className="scoreboard-team away">{away?.short_name ?? awayId}</span>
+      <span className="scoreboard-team away">
+        <span className="team-name-row">
+          <span className="team-dot away-dot" aria-hidden="true" />
+          {away?.short_name ?? awayId}
+        </span>
+        <span className="team-dir">← attacks left</span>
+      </span>
       <span className="scoreboard-clock" aria-label={`Match clock ${fmtClock(clockS)}`}>
         {fmtClock(clockS)}
       </span>

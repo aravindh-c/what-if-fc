@@ -228,10 +228,38 @@ body {
   font-size: 1.1rem;
   font-weight: 600;
   letter-spacing: 0.04em;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
 }
 
-.scoreboard-team.home { text-align: right; color: var(--home-color); }
-.scoreboard-team.away { text-align: left; color: var(--away-color); }
+.scoreboard-team.home { align-items: flex-end; color: var(--home-color); }
+.scoreboard-team.away { align-items: flex-start; color: var(--away-color); }
+
+.team-name-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.team-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.home-dot { background: var(--home-color); }
+.away-dot { background: var(--away-color); }
+
+.team-dir {
+  font-size: 0.62rem;
+  color: var(--text-muted);
+  font-weight: 400;
+  font-family: var(--font-body);
+  letter-spacing: 0.02em;
+}
 
 .scoreboard-score {
   font-size: 2rem;
@@ -534,4 +562,36 @@ body {
   .ghost-receiver-pulse {
     animation: ghost-pulse-once 0.6s 1.8s ease-out both;
   }
+}
+
+/* Pitch column — pitch + legend stacked */
+.pitch-col {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Pitch legend */
+.pitch-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  padding: 2px 4px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-family: var(--font-body);
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Score explainer */
+.moment-score-explainer {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+  margin-top: 4px;
 }

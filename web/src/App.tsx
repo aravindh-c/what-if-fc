@@ -8,6 +8,7 @@ import PlaybackControls from './components/PlaybackControls.tsx'
 import Timeline from './components/Timeline.tsx'
 import ReplayPicker from './components/ReplayPicker.tsx'
 import MomentCard from './components/MomentCard.tsx'
+import PitchLegend from './components/PitchLegend.tsx'
 
 // ---------------------------------------------------------------------------
 // usePlayback hook
@@ -255,15 +256,18 @@ export default function App() {
       <main className="app-main">
         {!isScenario && <Scoreboard bundle={b} score={score} clockS={clockS} />}
         <div className="replay-body">
-          <div className="pitch-wrap">
-            <Pitch
-              positions={positions}
-              ball={ball}
-              bundle={b}
-              activeOverlay={activeOverlay}
-              homeTeam={homeTeam}
-              animKey={animKey}
-            />
+          <div className="pitch-col">
+            <div className="pitch-wrap">
+              <Pitch
+                positions={positions}
+                ball={ball}
+                bundle={b}
+                activeOverlay={activeOverlay}
+                homeTeam={homeTeam}
+                animKey={animKey}
+              />
+            </div>
+            {activeOverlay && <PitchLegend />}
           </div>
           <div className="moment-panel">
             {activeOverlay
