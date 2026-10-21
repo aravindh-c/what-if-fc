@@ -6,6 +6,7 @@ interface TimelineProps {
   clockS: number
   overlays: OverlayData[]
   onSeek: (t: number) => void
+  onPlay: () => void
 }
 
 const MOMENT_COLORS: Record<string, string> = {
@@ -14,7 +15,7 @@ const MOMENT_COLORS: Record<string, string> = {
   turnover:   '#F24040',
 }
 
-export default function Timeline({ durationS, clockS, overlays, onSeek }: TimelineProps) {
+export default function Timeline({ durationS, clockS, overlays, onSeek, onPlay }: TimelineProps) {
   if (durationS <= 0) return null
 
   const pct = (t: number) => `${Math.min(100, (t / durationS) * 100).toFixed(2)}%`
@@ -41,10 +42,8 @@ export default function Timeline({ durationS, clockS, overlays, onSeek }: Timeli
           if (e.key === 'End')   onSeek(durationS)
         }}
       >
-        {/* Played portion */}
         <div className="timeline-played" style={{ width: pct(clockS) }} />
 
-        {/* Moment markers */}
         {overlays.map(ov => {
           const t = ov.match_clock_s
           const color = MOMENT_COLORS[ov.moment_type] ?? '#fff'
@@ -53,17 +52,17 @@ export default function Timeline({ durationS, clockS, overlays, onSeek }: Timeli
               key={ov.overlay_id}
               className="timeline-marker"
               style={{ left: pct(t), background: color }}
-              aria-label={`${ov.moment_type} at ${fmtClock(t)}`}
+              aria-label={`${ov.moment_type.replace(/_/g, ' ')} at ${fmtClock(t)}`}
               onClick={e => {
                 e.stopPropagation()
                 onSeek(Math.max(0, t - 3))
+                onPlay()
               }}
               tabIndex={0}
             />
           )
         })}
 
-        {/* Playhead */}
         <div className="timeline-head" style={{ left: pct(clockS) }} aria-hidden="true" />
       </div>
     </div>
