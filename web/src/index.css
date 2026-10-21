@@ -497,14 +497,41 @@ body {
 /* Ghost pass glow */
 .glow-pass { filter: url(#ghost-glow); }
 
-/* Ghost receiver pulse */
+/* Pass draw-on animations */
+@keyframes line-draw {
+  from { stroke-dashoffset: 1; }
+  to   { stroke-dashoffset: 0; }
+}
+
+@keyframes ghost-reveal {
+  from { stroke-dashoffset: 1; }
+  to   { stroke-dashoffset: 0; }
+}
+
+@keyframes ghost-pulse-once {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50%       { transform: scale(1.75); opacity: 0.35; }
+}
+
+.ghost-receiver-pulse {
+  transform-origin: center;
+  transform-box: fill-box;
+}
+
 @media (prefers-reduced-motion: no-preference) {
-  .ghost-receiver-pulse {
-    animation: ghost-pulse 0.9s ease-in-out infinite;
+  .pass-draw-actual {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: line-draw 0.6s linear forwards;
   }
 
-  @keyframes ghost-pulse {
-    0%, 100% { opacity: 1; }
-    50%       { opacity: 0.35; }
+  .ghost-mask-draw {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: ghost-reveal 1.2s 0.6s linear forwards;
+  }
+
+  .ghost-receiver-pulse {
+    animation: ghost-pulse-once 0.6s 1.8s ease-out both;
   }
 }

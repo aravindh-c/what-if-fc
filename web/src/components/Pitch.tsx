@@ -83,6 +83,18 @@ export default function Pitch({ positions, ball, bundle, activeOverlay, homeTeam
             <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
+        {dispGhostFrom && dispGhostTo && (
+          <mask id={`ghost-mask-${animKey}`} maskUnits="userSpaceOnUse" x="0" y="0" width="105" height="68">
+            <line
+              key={`ghost-mask-line-${animKey}`}
+              x1={dispGhostFrom[0]} y1={dispGhostFrom[1]}
+              x2={dispGhostTo[0]}   y2={dispGhostTo[1]}
+              stroke="white" strokeWidth="4"
+              pathLength="1"
+              className="ghost-mask-draw"
+            />
+          </mask>
+        )}
       </defs>
 
       {/* Mown stripes — no borders, pure fill */}
@@ -125,7 +137,19 @@ export default function Pitch({ positions, ball, bundle, activeOverlay, homeTeam
         <path d="M 104 68 A 1 1 0 0 0 105 67" />
       </g>
 
-      {/* Ghost pass line — keyed so animKey re-mounts and restarts the animation */}
+      {/* Actual pass line — draws over 0.6 s */}
+      {dispActualFrom && dispActualTo && (
+        <line
+          key={`actual-line-${animKey}`}
+          x1={dispActualFrom[0]} y1={dispActualFrom[1]}
+          x2={dispActualTo[0]}   y2={dispActualTo[1]}
+          stroke="#F2F5EE" strokeWidth="0.5" strokeLinecap="round"
+          pathLength="1"
+          className="pass-draw-actual"
+        />
+      )}
+
+      {/* Ghost pass line — revealed by mask over 1.2 s starting at 0.6 s */}
       {dispGhostFrom && dispGhostTo && (
         <line
           key={`ghost-line-${animKey}`}
@@ -134,15 +158,7 @@ export default function Pitch({ positions, ball, bundle, activeOverlay, homeTeam
           stroke="#BFE8FF" strokeWidth="0.6"
           strokeDasharray="2 1.5" strokeLinecap="round"
           filter="url(#ghost-glow)" className="glow-pass"
-        />
-      )}
-
-      {/* Actual pass line */}
-      {dispActualFrom && dispActualTo && (
-        <line
-          x1={dispActualFrom[0]} y1={dispActualFrom[1]}
-          x2={dispActualTo[0]}   y2={dispActualTo[1]}
-          stroke="#F2F5EE" strokeWidth="0.5" strokeLinecap="round"
+          mask={`url(#ghost-mask-${animKey})`}
         />
       )}
 
