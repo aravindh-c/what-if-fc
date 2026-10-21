@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import type { CatalogEntry, OverlayData, ReplayBundle } from './types.ts'
 import { listReplays, loadReplay } from './api.ts'
-import { positionsAt, ballAt, scoreAt, maxClockS } from './lib/playback.ts'
+import { positionsAt, ballAt, scoreAt, maxClockS, tickStep } from './lib/playback.ts'
 import Pitch from './components/Pitch.tsx'
 import Scoreboard from './components/Scoreboard.tsx'
 import PlaybackControls from './components/PlaybackControls.tsx'
@@ -27,31 +27,45 @@ function usePlayback(bundle: ReplayBundle | null) {
   const rafRef = useRef<number | null>(null)
   const lastTsRef = useRef<number | null>(null)
   const pausedForOverlayRef = useRef<string | null>(null)
+  // Refs always in sync with state — safe to read from RAF closure without stale values
+  const clockRef = useRef(0)
+  const speedRef = useRef(30)
 
   const duration = bundle ? maxClockS(bundle) : 0
 
-  // Toggle play/pause
   const toggle = useCallback(() => {
     setState(s => {
-      if (s.playing) {
-        lastTsRef.current = null
-      }
-      return { ...s, playing: !s.playing, activeOverlay: s.playing ? s.activeOverlay : null }
+      if (s.playing) lastTsRef.current = null
+      return { ...s, playing: !s.playing }
     })
   }, [])
 
-  const setSpeed = useCallback((speed: number) => setState(s => ({ ...s, speed })), [])
+  const play = useCallback(() => {
+    lastTsRef.current = null
+    setState(s => ({ ...s, playing: true }))
+  }, [])
+
+  const setSpeed = useCallback((speed: number) => {
+    speedRef.current = speed
+    setState(s => ({ ...s, speed }))
+  }, [])
 
   const seek = useCallback((t: number) => {
+    const clamped = Math.max(0, Math.min(duration, t))
     pausedForOverlayRef.current = null
-    setState(s => ({
-      ...s,
-      clockS: Math.max(0, Math.min(duration, t)),
-      activeOverlay: null,
-    }))
+    clockRef.current = clamped
+    lastTsRef.current = null
+    setState(s => ({ ...s, clockS: clamped, activeOverlay: null }))
   }, [duration])
 
-  // RAF loop
+  const showMoment = useCallback((overlay: OverlayData) => {
+    pausedForOverlayRef.current = overlay.overlay_id
+    clockRef.current = overlay.match_clock_s
+    lastTsRef.current = null
+    setState(s => ({ ...s, clockS: overlay.match_clock_s, activeOverlay: overlay, playing: false }))
+  }, [])
+
+  // RAF loop — all hit detection outside setState so updaters stay pure (StrictMode safe)
   useEffect(() => {
     if (!state.playing || !bundle) return
     const safeBundle = bundle
@@ -61,33 +75,31 @@ function usePlayback(bundle: ReplayBundle | null) {
       const elapsed = (ts - lastTsRef.current) / 1000
       lastTsRef.current = ts
 
-      setState(prev => {
-        const { clockS, speed, activeOverlay } = prev
-        if (activeOverlay) return prev  // paused at overlay
+      const { nextClock, hitId, done } = tickStep(
+        clockRef.current,
+        elapsed,
+        speedRef.current,
+        duration,
+        safeBundle.overlays,
+        pausedForOverlayRef.current,
+      )
+      clockRef.current = nextClock
 
-        let next = clockS + elapsed * speed
-        if (next >= duration) next = duration
+      if (hitId) {
+        const hitOverlay = safeBundle.overlays.find(ov => ov.overlay_id === hitId)!
+        pausedForOverlayRef.current = hitId
+        lastTsRef.current = null
+        setState(prev => ({ ...prev, clockS: nextClock, playing: false, activeOverlay: hitOverlay }))
+        return
+      }
 
-        // Check if we've crossed an overlay clock
-        const hit = safeBundle.overlays.find(ov => {
-          if (pausedForOverlayRef.current === ov.overlay_id) return false
-          return ov.match_clock_s > clockS && ov.match_clock_s <= next
-        })
+      if (done) {
+        lastTsRef.current = null
+        setState(prev => ({ ...prev, clockS: nextClock, playing: false }))
+        return
+      }
 
-        if (hit) {
-          pausedForOverlayRef.current = hit.overlay_id
-          lastTsRef.current = null
-          return { ...prev, clockS: hit.match_clock_s, playing: false, activeOverlay: hit }
-        }
-
-        if (next >= duration) {
-          lastTsRef.current = null
-          return { ...prev, clockS: duration, playing: false }
-        }
-
-        return { ...prev, clockS: next }
-      })
-
+      setState(prev => ({ ...prev, clockS: nextClock }))
       rafRef.current = requestAnimationFrame(tick)
     }
 
@@ -95,24 +107,46 @@ function usePlayback(bundle: ReplayBundle | null) {
     return () => { if (rafRef.current != null) cancelAnimationFrame(rafRef.current) }
   }, [state.playing, bundle, duration])
 
-  // Space bar toggle
+  // Space bar — toggle anywhere except text inputs
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.code === 'Space' && e.target === document.body) {
-        e.preventDefault()
-        toggle()
-      }
+      if (e.code !== 'Space') return
+      const el = e.target as HTMLElement | null
+      if (!el) return
+      const tag = el.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || el.isContentEditable) return
+      e.preventDefault()
+      toggle()
     }
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
   }, [toggle])
 
-  return { ...state, toggle, setSpeed, seek }
+  return { ...state, toggle, play, setSpeed, seek, showMoment }
 }
 
 // ---------------------------------------------------------------------------
 // App
 // ---------------------------------------------------------------------------
+
+function kindLabel(kind: string) {
+  if (kind === 'match') return 'Full match'
+  if (kind === 'scenario') return 'Scenario'
+  return kind.charAt(0).toUpperCase() + kind.slice(1)
+}
+
+function replayTitle(bundle: ReplayBundle) {
+  const ids = Object.keys(bundle.meta.teams)
+  const home = bundle.meta.teams[ids[0]]?.name
+  const away = bundle.meta.teams[ids[1]]?.name
+  if (home && away) return `${home} vs ${away}`
+  return bundle.meta.title
+}
+
+function seedSubtitle(replayId: string): string | null {
+  const m = replayId.match(/_s(\d+)_/)
+  return m ? `Seed ${m[1]} replay` : null
+}
 
 export default function App() {
   const [entries, setEntries] = useState<CatalogEntry[]>([])
@@ -120,36 +154,48 @@ export default function App() {
   const [listError, setListError] = useState<string | null>(null)
   const [bundle, setBundle] = useState<ReplayBundle | null>(null)
   const [bundleLoading, setBundleLoading] = useState(false)
+  const [bundleError, setBundleError] = useState<string | null>(null)
 
-  const { clockS, playing, speed, activeOverlay, toggle, setSpeed, seek } = usePlayback(bundle)
+  const { clockS, playing, speed, activeOverlay, toggle, play, setSpeed, seek, showMoment } = usePlayback(bundle)
 
-  // Load catalog
   useEffect(() => {
     listReplays()
-      .then(setEntries)
+      .then(data => setEntries(data))
       .catch(e => setListError(String(e)))
       .finally(() => setListLoading(false))
   }, [])
 
   const openReplay = useCallback(async (id: string) => {
     setBundleLoading(true)
+    setBundleError(null)
     try {
       const b = await loadReplay(id)
-      setBundle(b)
-      // Scenario replays: open directly at the first (only) overlay moment
-      if (b.meta.kind === 'scenario' && b.overlays.length > 0) {
-        seek(b.overlays[0].match_clock_s)
+      if (!b.frames) {
+        setBundleError('This replay was built with an older version. Rebuild it with scripts/build_replay.py.')
+        return
       }
+      setBundle(b)
+      if (b.meta.kind === 'scenario' && b.overlays.length > 0) {
+        showMoment(b.overlays[0])
+      }
+    } catch (e) {
+      setBundleError(`Failed to load replay: ${String(e)}`)
     } finally {
       setBundleLoading(false)
     }
-  }, [seek])
+  }, [showMoment])
 
-  if (!bundle) {
+  const closeBundle = useCallback(() => {
+    setBundle(null)
+    setBundleError(null)
+  }, [])
+
+  // Picker view
+  if (!bundle && !bundleError) {
     return (
       <div className="app-root">
         <header className="app-header">
-          <h1>What-If FC</h1>
+          <h1 className="app-title">What If FC</h1>
         </header>
         <main className="app-main">
           {bundleLoading
@@ -159,6 +205,7 @@ export default function App() {
                 loading={listLoading}
                 error={listError}
                 onSelect={openReplay}
+                kindLabel={kindLabel}
               />
           }
         </main>
@@ -166,37 +213,58 @@ export default function App() {
     )
   }
 
-  const homeTeam = Object.keys(bundle.meta.teams)[0] ?? ''
-  const positions = positionsAt(clockS, bundle)
-  const ball = ballAt(clockS, bundle.events, homeTeam)
-  const score = scoreAt(clockS, bundle)
-  const duration = maxClockS(bundle)
+  // Error view
+  if (bundleError) {
+    return (
+      <div className="app-root">
+        <header className="app-header">
+          <button className="btn back-btn" onClick={closeBundle} aria-label="Back to replay list">← Back</button>
+          <h1 className="app-title">What If FC</h1>
+        </header>
+        <main className="app-main">
+          <div className="bundle-error">
+            <p className="bundle-error-msg">{bundleError}</p>
+            <button className="btn btn-primary" onClick={closeBundle}>Back to replays</button>
+          </div>
+        </main>
+      </div>
+    )
+  }
+
+  const homeTeam = Object.keys(bundle!.meta.teams)[0] ?? ''
+  const positions = positionsAt(clockS, bundle!)
+  const ball = ballAt(clockS, bundle!.events, homeTeam)
+  const score = scoreAt(clockS, bundle!)
+  const dur = maxClockS(bundle!)
+  const subtitle = seedSubtitle(bundle!.meta.replay_id)
 
   return (
     <div className="app-root">
       <header className="app-header">
-        <button
-          className="btn back-btn"
-          onClick={() => setBundle(null)}
-          aria-label="Back to replay list"
-        >
-          ← Back
-        </button>
-        <h1>{bundle.meta.title}</h1>
+        <button className="btn back-btn" onClick={closeBundle} aria-label="Back to replay list">← Back</button>
+        <div className="app-header-title">
+          <span className="app-header-name">{replayTitle(bundle!)}</span>
+          {subtitle && <span className="app-header-sub">{subtitle}</span>}
+        </div>
       </header>
       <main className="app-main">
-        <Scoreboard bundle={bundle} score={score} clockS={clockS} />
-        <div className="pitch-wrap">
-          <Pitch
-            positions={positions}
-            ball={ball}
-            bundle={bundle}
-            activeOverlay={activeOverlay}
-            homeTeam={homeTeam}
-          />
-          {activeOverlay && (
-            <MomentCard overlay={activeOverlay} bundle={bundle} />
-          )}
+        <Scoreboard bundle={bundle!} score={score} clockS={clockS} />
+        <div className="replay-body">
+          <div className="pitch-wrap">
+            <Pitch
+              positions={positions}
+              ball={ball}
+              bundle={bundle!}
+              activeOverlay={activeOverlay}
+              homeTeam={homeTeam}
+            />
+          </div>
+          <div className="moment-panel">
+            {activeOverlay
+              ? <MomentCard overlay={activeOverlay} bundle={bundle!} />
+              : <p className="moment-panel-empty">Play the match to see key moments</p>
+            }
+          </div>
         </div>
         <PlaybackControls
           playing={playing}
@@ -205,10 +273,11 @@ export default function App() {
           onSpeed={setSpeed}
         />
         <Timeline
-          durationS={duration}
+          durationS={dur}
           clockS={clockS}
-          overlays={bundle.overlays}
+          overlays={bundle!.overlays}
           onSeek={seek}
+          onPlay={play}
         />
       </main>
     </div>
