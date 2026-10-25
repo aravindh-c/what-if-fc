@@ -208,6 +208,7 @@ def run_publisher(
     total_snaps_sent = 0
     prev_clock = 0
     t_start = time.monotonic()
+    last_flush_t = t_start
     snaps_sent: set[str] = set()
 
     with contextlib.ExitStack() as stack:
@@ -271,11 +272,22 @@ def run_publisher(
                     time.sleep(delay)
             prev_clock = ev.match_clock_s
 
-            if (i + 1) % 200 == 0:
+            # Time-based flush: at least once per real second when speed > 0
+            if speed > 0 and batch_count > 0:
+                now_t = time.monotonic()
+                if now_t - last_flush_t >= 1.0:
+                    producer.send_batch(batch)
+                    total_sent += batch_count
+                    batch = producer.create_batch()
+                    batch_count = 0
+                    last_flush_t = now_t
+
+            if (i + 1) % 200 == 0 and batch_count > 0:
                 producer.send_batch(batch)
                 total_sent += batch_count
                 batch = producer.create_batch()
                 batch_count = 0
+                last_flush_t = time.monotonic()
                 print(f"  {i + 1}/{len(events)} events sent …")
 
         # Flush remainder
