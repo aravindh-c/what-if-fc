@@ -181,9 +181,15 @@ async def _watch(state: LiveMatchState, kql: Any) -> None:
 
                 # Build evidence packet + twin
                 try:
-                    pass_event_for(moment, state.events)
-                    snapshot = _get_snapshot(moment.snapshot_id)
-                    twin = score_pass(moment, state.events, snapshot)
+                    pass_ev = pass_event_for(moment, state.events)
+                    if pass_ev is None:
+                        continue
+                    snapshot = _get_snapshot(pass_ev.snapshot_id)
+                    if snapshot is None:
+                        continue
+                    twin = score_pass(pass_ev, snapshot)
+                    if not twin.ghost_shown:
+                        continue
                     packet = build_evidence_packet(
                         moment, state.events, snapshot, twin, state.match_id
                     )
