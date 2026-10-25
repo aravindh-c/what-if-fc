@@ -22,6 +22,7 @@ import json
 import logging
 import os
 import re
+import time
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -150,12 +151,14 @@ def _build_roster(match_id: str) -> list:
 # ---------------------------------------------------------------------------
 
 
-def _get_snapshot(state: LiveMatchState, kql: Any, snapshot_id: str | None) -> Any:
+async def _get_snapshot(state: LiveMatchState, kql: Any, snapshot_id: str | None) -> Any:
     if snapshot_id is None:
         return None
     if snapshot_id in state.snap_cache:
         return state.snap_cache[snapshot_id]
-    row = kql.match_snapshot(state.match_id, snapshot_id)
+    t0 = time.monotonic()
+    row = await asyncio.to_thread(kql.match_snapshot, state.match_id, snapshot_id)
+    logger.debug("match_snapshot took %.2fs", time.monotonic() - t0)
     if row is None:
         return None
     from core.schemas import PlayerPosition, PositionSnapshot
@@ -185,8 +188,10 @@ async def poll_once(state: LiveMatchState, kql: Any, client: Any) -> None:
     from analytics.tactical_twin import score_pass
     from core.schemas import EventType
 
-    # Fetch new rows
-    rows = kql.events_since(state.match_id, state.clock_s)
+    # Fetch new rows — run in a thread so the event loop stays responsive
+    t_events = time.monotonic()
+    rows = await asyncio.to_thread(kql.events_since, state.match_id, state.clock_s)
+    logger.debug("events_since took %.2fs, got %d rows", time.monotonic() - t_events, len(rows))
 
     # Convert rows to MatchEvent objects
     new_events: list[Any] = []
@@ -229,7 +234,7 @@ async def poll_once(state: LiveMatchState, kql: Any, client: Any) -> None:
             if pass_ev is None:
                 state.processed_ids.add(moment.moment_id)
                 continue
-            snapshot = _get_snapshot(state, kql, pass_ev.snapshot_id)
+            snapshot = await _get_snapshot(state, kql, pass_ev.snapshot_id)
             if snapshot is None:
                 retry_count = state.pending_moments.get(moment.moment_id, 0)
                 if retry_count >= _MAX_SNAPSHOT_RETRIES:
@@ -284,16 +289,21 @@ async def poll_once(state: LiveMatchState, kql: Any, client: Any) -> None:
             _agents_pair = None
             fallback_reason = None
 
-        # Run workflow
+        # Run workflow (60 s per call in live mode)
         try:
+            t_wf = time.monotonic()
             overlay, log = await run_moment_workflow(
                 packet,
                 twin,
                 roster,
                 kql,
                 client,
-                timeout_s=30.0,
+                timeout_s=60.0,
                 _agents=_agents_pair,
+            )
+            logger.debug(
+                "workflow for %s took %.2fs source=%s",
+                moment.moment_id, time.monotonic() - t_wf, log.get("source"),
             )
         except Exception:
             logger.exception("Workflow failed for %s", moment.moment_id)

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import time as _time
 from typing import Any
 
 # ---------------------------------------------------------------------------
@@ -224,3 +225,59 @@ def test_live_watcher_outage_gives_template(tmp_path: Any, monkeypatch: Any) -> 
         assert reason == "simulated outage", (
             f"Overlay {ov_id}: expected fallback_reason='simulated outage', got {reason!r}"
         )
+
+
+# ---------------------------------------------------------------------------
+# AT-LW-03: events_since runs in a thread (non-blocking)
+# ---------------------------------------------------------------------------
+
+
+def test_slow_kql_does_not_block_state(tmp_path: Any, monkeypatch: Any) -> None:
+    """AT-LW-03: a slow KQL call must not block concurrent event loop work."""
+    monkeypatch.setenv("REPLAY_DIR", str(tmp_path))
+
+    SLEEP = 0.3  # simulate slow Fabric; keep test fast
+
+    class SlowKql:
+        def events_since(self, match_id: str, clock_s: int) -> list:
+            _time.sleep(SLEEP)
+            return []
+
+        def match_snapshot(self, *a) -> None:
+            return None
+
+        def match_stats(self, *a) -> dict:
+            return {}
+
+        def momentum_at(self, *a) -> dict:
+            return {}
+
+        def pressure_at(self, *a) -> dict:
+            return {}
+
+        def recent_events(self, *a, **kw) -> list:
+            return []
+
+        def live_matches(self) -> list:
+            return []
+
+    async def run() -> tuple[float, list[float]]:
+        from api.live import LiveMatchState, poll_once
+
+        state = LiveMatchState(match_id="match_s7_T01_T02")
+        loop = asyncio.get_event_loop()
+        concurrent_done: list[float] = []
+
+        async def concurrent() -> None:
+            concurrent_done.append(loop.time())
+
+        t0 = loop.time()
+        await asyncio.gather(poll_once(state, SlowKql(), None), concurrent())
+        return t0, concurrent_done
+
+    t0, done = asyncio.run(run())
+    assert done, "concurrent coroutine never ran"
+    assert done[0] - t0 < SLEEP * 0.5, (
+        f"Event loop was blocked: concurrent ran {done[0] - t0:.3f}s after start "
+        f"(KQL sleep was {SLEEP}s)"
+    )
