@@ -197,6 +197,20 @@ def test_local_store_list_ids() -> None:
         assert ids == ["replay_a", "replay_b"]
 
 
+def test_local_store_excludes_live_files() -> None:
+    """live_*.json files written by the watcher must not appear in the catalog."""
+    from api.replay_store import LocalReplayStore
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_dir = Path(tmp)
+        _write_bundle(tmp_dir, "replay_a", _make_bundle("replay_a"))
+        _write_bundle(tmp_dir, "live_match_s7_T01_T02", _make_bundle("live_match_s7_T01_T02"))
+        store = LocalReplayStore(directory=tmp_dir)
+        ids = store.list_ids()
+        assert ids == ["replay_a"]
+        assert "live_match_s7_T01_T02" not in ids
+
+
 def test_local_store_load() -> None:
     from api.replay_store import LocalReplayStore
 

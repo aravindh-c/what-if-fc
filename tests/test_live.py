@@ -147,8 +147,9 @@ class FakeKql:
 # ---------------------------------------------------------------------------
 
 
-def test_live_watcher_matches_offline_builder() -> None:
+def test_live_watcher_matches_offline_builder(tmp_path: Any, monkeypatch: Any) -> None:
     """AT-LW-01: poll_once produces exactly the same overlay ids as the offline builder."""
+    monkeypatch.setenv("REPLAY_DIR", str(tmp_path))
     from api.live import LiveMatchState, poll_once
 
     data = _seed7_data()
@@ -187,8 +188,9 @@ def test_live_watcher_matches_offline_builder() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_live_watcher_outage_gives_template() -> None:
+def test_live_watcher_outage_gives_template(tmp_path: Any, monkeypatch: Any) -> None:
     """AT-LW-02: simulate_outage forces source=template with reason 'simulated outage'."""
+    monkeypatch.setenv("REPLAY_DIR", str(tmp_path))
     from api.live import LiveMatchState, poll_once
 
     data = _seed7_data()

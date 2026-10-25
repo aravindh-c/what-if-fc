@@ -46,7 +46,11 @@ class LocalReplayStore:
     def list_ids(self) -> list[str]:
         if not self._dir.exists():
             return []
-        return sorted(p.stem for p in self._dir.glob("*.json"))
+        return sorted(
+            p.stem
+            for p in self._dir.glob("*.json")
+            if not p.stem.startswith("live_")
+        )
 
     def load(self, replay_id: str) -> dict[str, Any] | None:
         if replay_id in self._cache:
@@ -90,7 +94,7 @@ class BlobReplayStore:
         return sorted(
             b.name[:-5]  # strip .json
             for b in container_client.list_blobs()
-            if b.name.endswith(".json")
+            if b.name.endswith(".json") and not b.name.startswith("live_")
         )
 
     def load(self, replay_id: str) -> dict[str, Any] | None:
