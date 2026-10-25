@@ -409,7 +409,7 @@ export default function App() {
                 animKey={animKey}
               />
             </div>
-            {activeOverlay && <PitchLegend />}
+            {activeOverlay?.moment_type === 'ghost_pass' && <PitchLegend />}
           </div>
           {sidePanel}
         </div>

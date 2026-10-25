@@ -248,7 +248,7 @@ export default function LiveView({ matchId, displayMode, onChangeMode, onBack }:
                 animKey={animKey}
               />
             </div>
-            {activeOverlay && <PitchLegend />}
+            {activeOverlay?.moment_type === 'ghost_pass' && <PitchLegend />}
           </div>
           {sidePanel}
         </div>
