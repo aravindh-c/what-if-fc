@@ -85,7 +85,7 @@ def _ghost_pass_text(packet, roster_map: dict[str, str]) -> OverlayText:
     # Pass direction: note backwards passes (negative progress)
     prog = packet.actual_progress_m
     if prog is not None and prog < 0:
-        direction = f" (backwards, {prog:.1f} m)"
+        direction = f" (backwards, {prog:.1f} m)"
     else:
         direction = ""
 
@@ -94,8 +94,8 @@ def _ghost_pass_text(packet, roster_map: dict[str, str]) -> OverlayText:
     g_def = packet.ghost_nearest_defender_m
     if a_def is not None and g_def is not None:
         def_note = (
-            f" Pass to {receiver} had a defender {a_def:.1f} m away;"
-            f" {ghost} was {g_def:.1f} m clear."
+            f" Pass to {receiver} had a defender {a_def:.1f} m away;"
+            f" {ghost} was {g_def:.1f} m clear."
         )
     else:
         def_note = ""
@@ -113,9 +113,9 @@ def _ghost_pass_text(packet, roster_map: dict[str, str]) -> OverlayText:
         and a_def is not None and g_def > a_def
     )
     if is_truly_free:
-        f_headline = f"{ghost} was free at {g_def:.1f} m!"
+        f_headline = f"{ghost} was free at {g_def:.1f} m!"
         f_body = (
-            f"{ghost} had {g_def:.1f} m of space; "
+            f"{ghost} had {g_def:.1f} m of space; "
             f"better option score {g_score:.2f} vs {a_score:.2f}."
         )
     else:

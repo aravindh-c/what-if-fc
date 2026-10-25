@@ -13,9 +13,13 @@ interface MomentCardProps {
 
 function fmt(n: number) { return n.toFixed(2) }
 
+function nbspNums(s: string): string {
+  return s.replace(/(\d[\d.]*) (m)\b/g, '$1 $2')
+}
+
 function FanText({ overlay }: { overlay: OverlayData }) {
   const fanText = Object.values(overlay.text.fan)[0]
-  const headline = fanText?.headline ?? overlay.moment_type.replace(/_/g, ' ')
+  const headline = nbspNums(fanText?.headline ?? overlay.moment_type.replace(/_/g, ' '))
   const body = fanText?.body ?? ''
   return (
     <>
@@ -27,7 +31,7 @@ function FanText({ overlay }: { overlay: OverlayData }) {
 
 function AnalystText({ overlay }: { overlay: OverlayData }) {
   const analystText = Object.values(overlay.text.analyst)[0]
-  const headline = analystText?.headline ?? overlay.moment_type.replace(/_/g, ' ')
+  const headline = nbspNums(analystText?.headline ?? overlay.moment_type.replace(/_/g, ' '))
   const body = analystText?.body ?? ''
   return (
     <>
