@@ -947,3 +947,76 @@ body {
   color: #f06060;
   margin-top: 4px;
 }
+
+/* Live picker card */
+.picker-card-live {
+  border-color: #2e7d32;
+}
+
+.picker-card-live:hover,
+.picker-card-live:focus-visible {
+  border-color: #43a047;
+  background: var(--surface-raised);
+}
+
+.picker-card-meta {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+/* Live pulse dot */
+.live-pulse-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #43a047;
+  margin-right: 4px;
+  vertical-align: middle;
+  animation: live-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.4; transform: scale(0.75); }
+}
+
+/* Live clock badge in header */
+.live-clock-badge {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 0.82rem;
+  font-family: var(--font-display);
+  color: #43a047;
+}
+
+/* Live scoreline strip */
+.live-scoreline {
+  display: flex;
+  gap: 8px;
+  padding: 6px 16px;
+}
+
+.live-score-chip {
+  font-size: 0.82rem;
+  font-family: var(--font-display);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 2px 8px;
+}
+
+/* Live waiting message */
+.live-waiting {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 32px 16px;
+  color: var(--text-muted);
+}
+
+.live-waiting-text {
+  font-size: 0.9rem;
+}

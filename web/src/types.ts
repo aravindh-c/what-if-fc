@@ -187,3 +187,19 @@ export interface PlayerPos {
   x: number
   y: number
 }
+
+export interface LiveMatch {
+  match_id: string
+  event_count: number
+  last_clock_s: number
+  last_ingested: string
+}
+
+export interface LiveState {
+  match_id: string
+  clock_s: number
+  score: Record<string, number>
+  latest_snapshot: Record<string, unknown> | null
+  simulate_outage: boolean
+  overlay_count: number
+}

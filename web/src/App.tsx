@@ -1,5 +1,16 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import type { CatalogEntry, OverlayData, ReplayBundle } from './types.ts'
+import type { CatalogEntry, LiveMatch, OverlayData, ReplayBundle } from './types.ts'
+import { listReplays, listLiveMatches, loadReplay, watchMatch } from './api.ts'
+import { positionsAt, ballAt, scoreAt, maxClockS, tickStep } from './lib/playback.ts'
+import Pitch from './components/Pitch.tsx'
+import Scoreboard from './components/Scoreboard.tsx'
+import PlaybackControls from './components/PlaybackControls.tsx'
+import Timeline from './components/Timeline.tsx'
+import ReplayPicker from './components/ReplayPicker.tsx'
+import MomentCard from './components/MomentCard.tsx'
+import PitchLegend from './components/PitchLegend.tsx'
+import EvidenceDrawer from './components/EvidenceDrawer.tsx'
+import LiveView from './components/LiveView.tsx'
 
 export type DisplayMode = 'fan' | 'analyst' | 'compare'
 
@@ -10,16 +21,6 @@ function getStoredMode(): DisplayMode {
   } catch { /* ignore */ }
   return 'fan'
 }
-import { listReplays, loadReplay } from './api.ts'
-import { positionsAt, ballAt, scoreAt, maxClockS, tickStep } from './lib/playback.ts'
-import Pitch from './components/Pitch.tsx'
-import Scoreboard from './components/Scoreboard.tsx'
-import PlaybackControls from './components/PlaybackControls.tsx'
-import Timeline from './components/Timeline.tsx'
-import ReplayPicker from './components/ReplayPicker.tsx'
-import MomentCard from './components/MomentCard.tsx'
-import PitchLegend from './components/PitchLegend.tsx'
-import EvidenceDrawer from './components/EvidenceDrawer.tsx'
 
 // ---------------------------------------------------------------------------
 // usePlayback hook
@@ -162,6 +163,7 @@ function seedSubtitle(replayId: string): string | null {
 
 export default function App() {
   const [entries, setEntries] = useState<CatalogEntry[]>([])
+  const [liveMatches, setLiveMatches] = useState<LiveMatch[]>([])
   const [listLoading, setListLoading] = useState(true)
   const [listError, setListError] = useState<string | null>(null)
   const [bundle, setBundle] = useState<ReplayBundle | null>(null)
@@ -170,6 +172,7 @@ export default function App() {
   const [animKey, setAnimKey] = useState(0)
   const [displayMode, setDisplayMode] = useState<DisplayMode>(getStoredMode)
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [liveMatchId, setLiveMatchId] = useState<string | null>(null)
 
   const changeMode = useCallback((m: DisplayMode) => {
     try { localStorage.setItem('whatiffc_mode', m) } catch { /* ignore */ }
@@ -179,10 +182,17 @@ export default function App() {
   const { clockS, playing, speed, activeOverlay, toggle, play, setSpeed, seek, showMoment } = usePlayback(bundle)
 
   useEffect(() => {
-    listReplays()
-      .then(data => setEntries(data))
-      .catch(e => setListError(String(e)))
-      .finally(() => setListLoading(false))
+    Promise.all([
+      listReplays().then(data => setEntries(data)).catch(e => setListError(String(e))),
+      listLiveMatches().then(data => setLiveMatches(data)).catch(() => { /* live optional */ }),
+    ]).finally(() => setListLoading(false))
+  }, [])
+
+  const openLive = useCallback(async (matchId: string) => {
+    try {
+      await watchMatch(matchId)
+    } catch { /* watcher may already be running */ }
+    setLiveMatchId(matchId)
   }, [])
 
   const openReplay = useCallback(async (id: string) => {
@@ -231,6 +241,17 @@ export default function App() {
     showMoment(bundle.overlays[0])
   }, [bundle, showMoment])
 
+  // Live match view
+  if (liveMatchId) {
+    return (
+      <LiveView
+        matchId={liveMatchId}
+        displayMode={displayMode}
+        onBack={() => setLiveMatchId(null)}
+      />
+    )
+  }
+
   // Picker view
   if (!bundle && !bundleError) {
     return (
@@ -243,9 +264,11 @@ export default function App() {
             ? <p className="picker-status">Loading replay…</p>
             : <ReplayPicker
                 entries={entries}
+                liveMatches={liveMatches}
                 loading={listLoading}
                 error={listError}
                 onSelect={openReplay}
+                onSelectLive={openLive}
                 kindLabel={kindLabel}
               />
           }
