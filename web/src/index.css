@@ -1450,3 +1450,341 @@ body {
   outline: 2px solid var(--ghost-ink);
   outline-offset: 2px;
 }
+
+/* =========================================================================
+   Season section
+   ========================================================================= */
+
+.season-section {
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 32px 16px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.season-heading {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--text);
+}
+
+.season-subhead {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+/* Standings */
+
+.season-standings-wrap {
+  overflow-x: auto;
+}
+
+.season-standings {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.season-standings th,
+.season-standings td {
+  padding: 6px 10px;
+  text-align: center;
+  border-bottom: 1px solid var(--border);
+}
+
+.season-standings th {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.season-standings .col-team {
+  text-align: left;
+  white-space: nowrap;
+  min-width: 160px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.season-standings td.col-team {
+  display: table-cell;
+}
+
+.team-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+
+.season-standings .col-pts {
+  font-weight: 700;
+  color: var(--home-color);
+}
+
+.season-standings .row-top td {
+  background: rgba(227, 165, 43, 0.06);
+}
+
+.season-standings .pos { color: #4caf50; }
+.season-standings .neg { color: #f44336; }
+
+/* Results grid */
+
+.season-results-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 800px) {
+  .season-results-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 480px) {
+  .season-results-grid { grid-template-columns: 1fr; }
+}
+
+.season-result-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.result-score-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.result-team {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.85rem;
+  flex: 1;
+}
+
+.result-team.home-team { text-align: left; }
+.result-team.away-team { text-align: right; }
+
+.result-score {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+/* Comparison bars */
+
+.comp-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.comp-bar-row {
+  display: grid;
+  grid-template-columns: 3.5rem 1fr 3.5rem;
+  grid-template-rows: auto auto;
+  align-items: center;
+  gap: 0 6px;
+}
+
+.comp-bar-val {
+  font-size: 0.75rem;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.comp-bar-val.home { text-align: right; }
+.comp-bar-val.away { text-align: left; }
+
+.comp-bar-track {
+  height: 6px;
+  border-radius: 3px;
+  overflow: hidden;
+  display: flex;
+}
+
+.comp-bar-home,
+.comp-bar-away {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.comp-bar-label {
+  grid-column: 1 / -1;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  text-align: center;
+  margin-top: 2px;
+}
+
+/* Watch replay button */
+
+.btn-watch-replay {
+  font-size: 0.8rem;
+  padding: 5px 12px;
+  background: transparent;
+  border: 1px solid var(--home-color);
+  color: var(--home-color);
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  transition: background 0.15s;
+  align-self: flex-start;
+}
+
+.btn-watch-replay:hover,
+.btn-watch-replay:focus-visible {
+  background: rgba(227, 165, 43, 0.12);
+  outline: 2px solid var(--home-color);
+  outline-offset: 2px;
+}
+
+/* Team tiles */
+
+.team-tiles-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+@media (max-width: 800px) {
+  .team-tiles-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 480px) {
+  .team-tiles-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+.team-tile {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.team-tile-band {
+  height: 4px;
+  width: 100%;
+}
+
+.team-tile-name {
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 8px 10px 4px;
+  color: var(--text);
+}
+
+.team-tile-stats {
+  padding: 0 10px 10px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 8px;
+}
+
+.team-tile-stats div {
+  display: flex;
+  flex-direction: column;
+}
+
+.team-tile-stats dt {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.team-tile-stats dd {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Data quality strip */
+
+.dq-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  padding: 10px 0 24px;
+  position: relative;
+  flex-wrap: wrap;
+}
+
+.dq-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.dq-info-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--ghost-ink);
+  font-size: 1rem;
+  padding: 2px 4px;
+  border-radius: 50%;
+  line-height: 1;
+}
+
+.dq-info-btn:hover,
+.dq-info-btn:focus-visible {
+  background: rgba(191, 232, 255, 0.12);
+  outline: 2px solid var(--ghost-ink);
+  outline-offset: 2px;
+}
+
+.dq-tooltip {
+  position: absolute;
+  bottom: calc(100% - 8px);
+  left: 0;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  font-size: 0.78rem;
+  color: var(--text);
+  line-height: 1.6;
+  min-width: 240px;
+  box-shadow: var(--shadow);
+  z-index: 10;
+}
+
+.dq-tooltip code {
+  font-size: 0.7rem;
+  color: var(--ghost-ink);
+  word-break: break-all;
+}

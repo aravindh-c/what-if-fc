@@ -1,4 +1,4 @@
-import type { BundleMeta, CatalogEntry, LiveMatch, LiveOverlay, LiveState, ReplayBundle } from './types.ts'
+import type { BundleMeta, CatalogEntry, LiveMatch, LiveOverlay, LiveState, ReplayBundle, Season } from './types.ts'
 
 const BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? ''
 
@@ -48,4 +48,11 @@ export function getLiveOverlays(matchId: string, sinceClockS = 0): Promise<LiveO
 
 export function setSimulateOutage(matchId: string, enabled: boolean): Promise<{ match_id: string; simulate_outage: boolean }> {
   return postJson(`/api/live/${encodeURIComponent(matchId)}/simulate-outage?enabled=${enabled}`)
+}
+
+export async function getSeason(): Promise<Season | null> {
+  const res = await fetch(`${BASE}/api/season`)
+  if (res.status === 404) return null
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText} — /api/season`)
+  return res.json() as Promise<Season>
 }

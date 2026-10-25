@@ -15,6 +15,7 @@ import LiveErrorBoundary from './components/LiveErrorBoundary.tsx'
 import Logo from './components/Logo.tsx'
 import Hero from './components/Hero.tsx'
 import HowItWorks from './components/HowItWorks.tsx'
+import SeasonSection from './components/SeasonSection.tsx'
 import Tour from './components/Tour.tsx'
 import type { TourStep } from './components/Tour.tsx'
 import SiteFooter from './components/SiteFooter.tsx'
@@ -299,6 +300,7 @@ export default function App() {
                   onSelectLive={openLive}
                   kindLabel={kindLabel}
                 />
+                <SeasonSection entries={entries} onSelect={openReplay} />
                 <HowItWorks />
               </>
             )

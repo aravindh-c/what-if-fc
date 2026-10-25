@@ -220,3 +220,97 @@ export interface LiveState {
   simulate_outage: boolean
   overlay_count: number
 }
+
+// ---------------------------------------------------------------------------
+// Season (gold layer)
+// ---------------------------------------------------------------------------
+
+export interface SeasonSource {
+  bronze_rows: number
+  rejected_rows: number
+  duplicate_rows: number
+  silver_rows: number
+  matches: number
+}
+
+export interface SeasonStandingRow {
+  team_id: string
+  team_name?: string
+  team_color?: string
+  played: number
+  won: number
+  drawn: number
+  lost: number
+  goals_for: number
+  goals_against: number
+  goal_diff: number
+  points: number
+}
+
+export interface SeasonMatchTeamStats {
+  team_name?: string
+  team_color?: string
+  passes: number
+  completed_passes: number
+  completion_pct: number
+  shots: number
+  shots_on_target: number
+  goals: number
+  possession_proxy_pct: number
+  tackles_won: number
+  interceptions: number
+  avg_pressure_on_passes: number
+}
+
+export interface SeasonTopPlayer {
+  player_id: string
+  team_id: string
+  name?: string
+  shirt_number?: number
+  goals: number
+  shots: number
+  passes: number
+  completion_pct: number
+  tackles_won: number
+  interceptions: number
+}
+
+export interface SeasonMatch {
+  match_id: string
+  seed: number
+  home_team_id: string
+  away_team_id: string
+  home_goals: number
+  away_goals: number
+  result: 'home_win' | 'draw' | 'away_win'
+  total_events: number
+  duration_min: number
+  is_complete: boolean
+  first_event_ts: string
+  last_event_ts: string
+  teams: Record<string, SeasonMatchTeamStats>
+  top_players: SeasonTopPlayer[]
+}
+
+export interface SeasonTeamTotal {
+  team_id: string
+  team_name?: string
+  team_color?: string
+  matches: number
+  avg_possession_pct: number
+  avg_completion_pct: number
+  shots_per_match: number
+  shots_on_target_per_match: number
+  goals_per_match: number
+  tackles_won_per_match: number
+}
+
+export interface Season {
+  version: number
+  generated_at: string
+  run_id: string
+  source: SeasonSource
+  standings: SeasonStandingRow[]
+  matches: SeasonMatch[]
+  team_totals: SeasonTeamTotal[]
+}

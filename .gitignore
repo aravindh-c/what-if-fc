@@ -25,6 +25,7 @@ web/.vite/
 data/generated/
 data/replay/*.json
 !data/replay/.gitkeep
+data/gold/
 
 # OS / editors
 .DS_Store

@@ -5,6 +5,7 @@ Endpoints:
   GET  /api/replays
   GET  /api/replays/{replay_id}
   GET  /api/replays/{replay_id}/overlays?since_clock_s=N
+  GET  /api/season
   GET  /api/live/matches
   POST /api/live/{match_id}/watch
   GET  /api/live/{match_id}/state?since_clock_s=N
@@ -146,6 +147,25 @@ def get_overlays(
         raise HTTPException(status_code=404, detail=f"replay {replay_id!r} not found")
     overlays: list[dict[str, Any]] = bundle.get("overlays", [])
     return [ov for ov in overlays if ov.get("match_clock_s", 0) > since_clock_s]
+
+
+# ---------------------------------------------------------------------------
+# Season endpoint
+# ---------------------------------------------------------------------------
+
+
+@app.get("/api/season")
+def get_season() -> dict[str, Any]:
+    """Return the enriched season summary built from the Fabric gold layer.
+
+    Returns 404 when the gold-layer season.json has not been generated yet.
+    """
+    from api.season import load_season
+
+    data = load_season()
+    if data is None:
+        raise HTTPException(status_code=404, detail="season not built yet")
+    return data
 
 
 # ---------------------------------------------------------------------------

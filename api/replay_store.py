@@ -94,7 +94,9 @@ class BlobReplayStore:
         return sorted(
             b.name[:-5]  # strip .json
             for b in container_client.list_blobs()
-            if b.name.endswith(".json") and not b.name.startswith("live_")
+            if b.name.endswith(".json")
+            and not b.name.startswith("live_")
+            and "/" not in b.name
         )
 
     def load(self, replay_id: str) -> dict[str, Any] | None:

@@ -184,7 +184,42 @@ overlays, pause) takes under 30 minutes of capacity time.
 
 ---
 
-## 7 — CI deployment and OIDC identity
+## 7 — Season page (gold layer)
+
+### Run locally
+
+1. Copy the fixture or generate a real gold export:
+
+   ```bash
+   cp tests/fixtures/season.json data/gold/season.json
+   ```
+
+2. Start the API (`uvicorn api.main:app --reload`) — `GET /api/season` will now return data.
+3. Open the app in the browser. The **Season** section appears between the replay picker and
+   the How It Works section.
+
+### Export from Fabric to Blob (production)
+
+The Fabric notebook `fabric/lakehouse/02_silver_gold.ipynb` writes `gold/season.json`
+directly to the `replays` container.  You need **Storage Blob Data Contributor** on the
+storage account (`whatifreplay`).
+
+If the managed identity does not yet have that role, grant it via the portal
+(**Storage account → Access control (IAM) → Add role assignment**) or with the CLI:
+
+```bash
+az role assignment create \
+  --role "Storage Blob Data Contributor" \
+  --assignee <managed-identity-principal-id> \
+  --scope /subscriptions/<sub>/resourceGroups/rg-pl-hackathon/providers/Microsoft.Storage/storageAccounts/whatifreplay
+```
+
+After the notebook run completes, the Season section refreshes within 60 seconds (TTL
+of the in-memory cache in `api/season.py`).
+
+---
+
+## 8 — CI deployment and OIDC identity
 
 The GitHub Actions `deploy` job in `.github/workflows/ci.yml` updates the Container
 App on every push to `main`. It authenticates with Azure using a **user-assigned
