@@ -18,12 +18,15 @@ Run with:
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from api.replay_store import ReplayStore, make_store
 
@@ -287,3 +290,22 @@ def simulate_outage(match_id: str, enabled: bool = True) -> dict[str, Any]:
         raise HTTPException(status_code=404, detail=f"match {match_id!r} not watched")
     set_simulate_outage(match_id, enabled)
     return {"match_id": match_id, "simulate_outage": enabled}
+
+
+# ---------------------------------------------------------------------------
+# Static files + SPA fallback (must come after all API routes)
+# ---------------------------------------------------------------------------
+
+_DIST = Path(__file__).parent.parent / "web" / "dist"
+
+if _DIST.is_dir():
+    # Serve Vite asset bundles (JS/CSS) at /assets
+    app.mount("/assets", StaticFiles(directory=_DIST / "assets"), name="static_assets")
+
+
+@app.get("/{full_path:path}", include_in_schema=False)
+async def spa_fallback(full_path: str) -> FileResponse:  # noqa: ARG001
+    """Return index.html for every non-API path (SPA client-side routing)."""
+    if _DIST.is_dir():
+        return FileResponse(_DIST / "index.html")
+    raise HTTPException(status_code=404, detail="Frontend not built — run 'npm run build' in web/")
