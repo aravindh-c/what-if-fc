@@ -1,10 +1,13 @@
 """Tests for the live moment watcher.
 
-No network required — events are injected directly from the offline simulator.
+No network required — a FakeKql drives the watcher with data built from the
+offline simulator (seed 7).
 
-AT-LW-01: watcher logic with offline events produces the same ghost overlays as
+AT-LW-01: poll_once repeated over 5-minute event chunks (snapshots arriving one
+           poll late) produces EXACTLY the same ghost and goal overlay ids as
            the offline builder for seed 7.
-AT-LW-02: simulate_outage flag causes source=template on the next overlay.
+AT-LW-02: simulate_outage flag causes source=template with reason "simulated
+           outage" on every overlay produced while the flag is set.
 """
 
 from __future__ import annotations
@@ -14,61 +17,103 @@ import hashlib
 from typing import Any
 
 # ---------------------------------------------------------------------------
-# Helpers: build seed-7 match data offline
+# Helpers: build seed-7 data offline
 # ---------------------------------------------------------------------------
 
 
 def _seed7_data() -> dict[str, Any]:
-    """Return match_id, events, snapshots for seed 7 (T01 vs T02)."""
     from simulator.run import run_match
 
     match_id, events, snapshots = run_match(7, "T01", "T02")
     return {"match_id": match_id, "events": events, "snapshots": snapshots}
 
 
-def _offline_ghost_overlay_ids(match_id: str, events: list, snapshots: list) -> list[str]:
-    """Overlay IDs produced by the offline builder for ghost moments."""
+def _offline_overlay_ids(match_id: str, events: list, snapshots: list) -> list[str]:
+    """All overlay IDs (ghost AND goal) that the offline builder would produce."""
     from analytics.evidence import build_evidence_packet
     from analytics.metrics import key_moments, pass_event_for
     from analytics.tactical_twin import score_pass
 
     snap_map = {s.snapshot_id: s for s in snapshots}
     moments = key_moments(events)
+
+    def _ov_id(event_id: str) -> str:
+        return "ov_" + hashlib.sha256((match_id + event_id).encode()).hexdigest()[:10]
+
     ids: list[str] = []
+
     for km in moments:
-        if not km.ghost_eligible:
-            continue
-        pass_ev = pass_event_for(km, events)
-        if pass_ev is None:
-            continue
-        snap = snap_map.get(pass_ev.snapshot_id or "")
-        if snap is None:
-            continue
-        twin = score_pass(pass_ev, snap)
-        if twin.ghost_shown:
-            build_evidence_packet(km, events, snap, twin, match_id)
-            raw = (match_id + km.event_id).encode()
-            ids.append("ov_" + hashlib.sha256(raw).hexdigest()[:10])
+        if km.ghost_eligible:
+            pass_ev = pass_event_for(km, events)
+            if pass_ev is None:
+                continue
+            snap = snap_map.get(pass_ev.snapshot_id or "")
+            if snap is None:
+                continue
+            twin = score_pass(pass_ev, snap)
+            if twin.ghost_shown:
+                build_evidence_packet(km, events, snap, twin, match_id)
+                ids.append(_ov_id(km.event_id))
+        elif km.moment_type == "goal":
+            ev = next((e for e in events if e.event_id == km.event_id), None)
+            if ev is not None and ev.player_id is not None:
+                ids.append(_ov_id(km.event_id))
+
     return ids
 
 
 # ---------------------------------------------------------------------------
-# FakeKql: serves snapshots only — events are injected directly into state
+# FakeKql: returns rows exactly as Kusto EventsSince would
 # ---------------------------------------------------------------------------
 
 
+def _event_to_row(ev: Any) -> dict:
+    """Convert a MatchEvent to a dict that mirrors a Kusto EventsSince row."""
+    return {
+        "event_id": ev.event_id,
+        "match_id": ev.match_id,
+        "scenario_id": ev.scenario_id,
+        "seed": ev.seed,
+        "event_time": ev.event_time,
+        "match_clock_s": ev.match_clock_s,
+        "period": ev.period,
+        "event_type": ev.event_type.value,
+        "team_id": ev.team_id,
+        "player_id": ev.player_id,
+        "possession_id": ev.possession_id,
+        "x": ev.x,
+        "y": ev.y,
+        "end_x": ev.end_x,
+        "end_y": ev.end_y,
+        "outcome": ev.outcome.value if ev.outcome else None,
+        "receiver_id": ev.receiver_id,
+        "pressure_level": ev.pressure_level,
+        "snapshot_id": ev.snapshot_id,
+    }
+
+
 class FakeKql:
-    """Minimal KQL backend for tests: snapshot lookup only.
+    """Serves events in 5-minute chunks; snapshots arrive one poll late."""
 
-    Events are injected into the watcher state directly (bypassing KQL row
-    conversion) since the full MatchEvent schema cannot be reconstructed
-    from the subset of fields that EventsSince returns.
-    """
-
-    def __init__(self, snapshots: list) -> None:
+    def __init__(self, events: list, snapshots: list) -> None:
+        self._events = events
         self._snapshots = snapshots
+        self._snapshot_first_seen: set[str] = set()
+
+    def events_since(self, match_id: str, clock_s: int) -> list[dict]:
+        window_end = clock_s + 300  # 5-minute chunk
+        evs = [
+            e for e in self._events
+            if e.match_id == match_id
+            and e.match_clock_s > clock_s
+            and e.match_clock_s <= window_end
+        ]
+        return [_event_to_row(e) for e in evs]
 
     def match_snapshot(self, match_id: str, snapshot_id: str) -> dict | None:
+        if snapshot_id not in self._snapshot_first_seen:
+            self._snapshot_first_seen.add(snapshot_id)
+            return None  # not available on first request
         for s in self._snapshots:
             if s.match_id == match_id and s.snapshot_id == snapshot_id:
                 return {
@@ -79,174 +124,90 @@ class FakeKql:
                 }
         return None
 
+    # pass-through helpers used by run_moment_workflow
+    def match_stats(self, match_id: str) -> dict:
+        from agents.kql_tools import LocalKql
+        return LocalKql(self._events).match_stats(match_id)
 
-# ---------------------------------------------------------------------------
-# Watcher core logic (extracted from api/live._watch for synchronous testing)
-# ---------------------------------------------------------------------------
+    def momentum_at(self, match_id: str, minute: int) -> dict:
+        from agents.kql_tools import LocalKql
+        return LocalKql(self._events).momentum_at(match_id, minute)
 
+    def pressure_at(self, match_id: str, minute: int) -> dict:
+        from agents.kql_tools import LocalKql
+        return LocalKql(self._events).pressure_at(match_id, minute)
 
-async def _process_events(
-    state: Any,
-    kql: FakeKql,
-    new_events: list,
-    processed_ids: set,
-    snap_cache: dict,
-) -> None:
-    """Process a batch of MatchEvent objects into state overlays."""
-    from agents.workflow import run_moment_workflow
-    from analytics.evidence import build_evidence_packet
-    from analytics.metrics import key_moments, pass_event_for
-    from analytics.tactical_twin import score_pass
-    from api.live import _NoOpAgent, _overlay_id  # noqa: PLC2701
-
-    _GHOST_COOLDOWN_S = 180
-
-    def _get_snapshot(snapshot_id: str | None) -> Any:
-        if snapshot_id is None:
-            return None
-        if snapshot_id in snap_cache:
-            return snap_cache[snapshot_id]
-        row = kql.match_snapshot(state.match_id, snapshot_id)
-        if row is None:
-            return None
-        from core.schemas import PlayerPosition, PositionSnapshot
-        raw_pos = row.get("positions") or []
-        positions = [PlayerPosition(**p) if isinstance(p, dict) else p for p in raw_pos]
-        snap = PositionSnapshot(
-            snapshot_id=row["snapshot_id"],
-            match_id=row["match_id"],
-            match_clock_s=row["match_clock_s"],
-            positions=positions,
-        )
-        snap_cache[snapshot_id] = snap
-        return snap
-
-    state.events.extend(new_events)
-    if state.events:
-        state.clock_s = max(e.match_clock_s for e in state.events)
-
-    moments = key_moments(state.events)
-
-    for moment in moments:
-        if moment.moment_id in processed_ids:
-            continue
-        processed_ids.add(moment.moment_id)
-
-        if not moment.ghost_eligible:
-            continue
-
-        gap = moment.match_clock_s - state.last_ghost_clock_s
-        if gap < _GHOST_COOLDOWN_S:
-            continue
-
-        try:
-            pass_ev = pass_event_for(moment, state.events)
-            if pass_ev is None:
-                continue
-            snapshot = _get_snapshot(pass_ev.snapshot_id)
-            if snapshot is None:
-                continue
-            twin = score_pass(pass_ev, snapshot)
-            if not twin.ghost_shown:
-                continue
-            packet = build_evidence_packet(
-                moment, state.events, snapshot, twin, state.match_id
-            )
-        except Exception:
-            continue
-
-        use_agents = not state.simulate_outage
-        overlay, log = await run_moment_workflow(
-            packet,
-            twin,
-            [],
-            kql,
-            None,
-            timeout_s=10.0,
-            _agents=None if use_agents else (_NoOpAgent(), _NoOpAgent()),
-        )
-        if not use_agents and log.get("source") == "template":
-            log = {**log, "fallback_reason": "simulated outage"}
-
-        ov_id = _overlay_id(state.match_id, moment.event_id)
-        ov_dict = overlay.model_dump(by_alias=True)
-        ov_dict["overlay_id"] = ov_id
-
-        state.overlays.append(ov_dict)
-        state.ledgers[ov_id] = {"run": log}
-        state.last_ghost_clock_s = moment.match_clock_s
+    def recent_events(self, match_id: str, minute: int, n: int = 5) -> list[dict]:
+        from agents.kql_tools import LocalKql
+        return LocalKql(self._events).recent_events(match_id, minute, n)
 
 
 # ---------------------------------------------------------------------------
-# AT-LW-01: same ghost overlays as offline builder
+# AT-LW-01: exact match with offline builder
 # ---------------------------------------------------------------------------
 
 
 def test_live_watcher_matches_offline_builder() -> None:
-    """AT-LW-01: watcher logic produces the same ghost overlay ids as offline builder."""
-    from api.live import LiveMatchState
+    """AT-LW-01: poll_once produces exactly the same overlay ids as the offline builder."""
+    from api.live import LiveMatchState, poll_once
 
     data = _seed7_data()
     match_id = data["match_id"]
     events = data["events"]
     snapshots = data["snapshots"]
 
-    expected_ids = _offline_ghost_overlay_ids(match_id, events, snapshots)
-    if not expected_ids:
-        return  # no ghost overlays in seed 7 — test vacuously passes
+    expected_ids = _offline_overlay_ids(match_id, events, snapshots)
+    assert expected_ids, (
+        "seed 7 must produce at least one overlay (ghost or goal) — check run_match(7)"
+    )
 
-    kql = FakeKql(snapshots)
+    kql = FakeKql(events, snapshots)
     state = LiveMatchState(match_id=match_id)
-    processed: set[str] = set()
-    snap_cache: dict[str, Any] = {}
 
-    # Feed events in chunks of 50, mirroring a live poll cycle
-    chunk_size = 50
-    for i in range(0, len(events), chunk_size):
-        chunk = events[i : i + chunk_size]
-        asyncio.run(_process_events(state, kql, chunk, processed, snap_cache))
+    # Enough polls to deliver all events in 5-minute chunks + retry passes for snapshots
+    max_clock = max(e.match_clock_s for e in events)
+    n_event_polls = (max_clock // 300) + 2
+    n_retry_polls = 3  # snapshots arrive one poll late; extra margin
+    total_polls = n_event_polls + n_retry_polls
+
+    for _ in range(total_polls):
+        asyncio.run(poll_once(state, kql, None))
 
     actual_ids = [ov["overlay_id"] for ov in state.overlays]
 
-    # The watcher applies a 180 s cooldown so it may produce fewer overlays
-    # than the offline builder (which has no cooldown). All watcher overlays
-    # must come from the expected set, and at least one must be produced.
-    assert len(actual_ids) > 0, (
-        f"Watcher produced no overlays; expected ids: {expected_ids!r}"
-    )
-    unexpected = set(actual_ids) - set(expected_ids)
-    assert not unexpected, (
-        f"Watcher produced unexpected overlay ids {unexpected!r}; "
-        f"expected from set {expected_ids!r}"
+    assert set(actual_ids) == set(expected_ids), (
+        f"Watcher overlay ids differ from offline builder.\n"
+        f"  actual  : {sorted(actual_ids)}\n"
+        f"  expected: {sorted(expected_ids)}"
     )
 
 
 # ---------------------------------------------------------------------------
-# AT-LW-02: outage flag → source=template
+# AT-LW-02: outage flag → source=template + reason
 # ---------------------------------------------------------------------------
 
 
 def test_live_watcher_outage_gives_template() -> None:
-    """AT-LW-02: simulate_outage flag forces source=template on the next overlay."""
-    from api.live import LiveMatchState
+    """AT-LW-02: simulate_outage forces source=template with reason 'simulated outage'."""
+    from api.live import LiveMatchState, poll_once
 
     data = _seed7_data()
     match_id = data["match_id"]
     events = data["events"]
     snapshots = data["snapshots"]
 
-    expected_ids = _offline_ghost_overlay_ids(match_id, events, snapshots)
+    expected_ids = _offline_overlay_ids(match_id, events, snapshots)
     if not expected_ids:
-        return  # no ghost overlays — test vacuously passes
+        return
 
-    kql = FakeKql(snapshots)
+    kql = FakeKql(events, snapshots)
     state = LiveMatchState(match_id=match_id)
-    state.simulate_outage = True  # force template path
-    processed: set[str] = set()
-    snap_cache: dict[str, Any] = {}
+    state.simulate_outage = True
 
-    # Feed all events at once
-    asyncio.run(_process_events(state, kql, list(events), processed, snap_cache))
+    max_clock = max(e.match_clock_s for e in events)
+    n_event_polls = (max_clock // 300) + 2
+    for _ in range(n_event_polls + 3):
+        asyncio.run(poll_once(state, kql, None))
 
     assert state.overlays, "No overlays produced with outage flag set"
 
@@ -254,6 +215,10 @@ def test_live_watcher_outage_gives_template() -> None:
         ov_id = ov["overlay_id"]
         run_info = state.ledgers.get(ov_id, {}).get("run", {})
         source = run_info.get("source", "")
+        reason = run_info.get("fallback_reason", "")
         assert source == "template", (
-            f"Overlay {ov_id}: expected source=template with outage, got {source!r}"
+            f"Overlay {ov_id}: expected source=template, got {source!r}"
+        )
+        assert reason == "simulated outage", (
+            f"Overlay {ov_id}: expected fallback_reason='simulated outage', got {reason!r}"
         )
