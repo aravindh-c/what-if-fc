@@ -20,6 +20,7 @@ from typing import Protocol, runtime_checkable
 _MATCH_ID_RE = re.compile(r"^match_[A-Za-z0-9_]+$")
 _MAX_RECENT = 10
 _MAX_MINUTE = 120
+_MAX_CLOCK_S = 7200  # 120 minutes in seconds
 
 
 # ---------------------------------------------------------------------------
@@ -45,6 +46,13 @@ def _validate_n(n: int) -> None:
     if not isinstance(n, int) or n < 1 or n > _MAX_RECENT:
         raise ValueError(
             f"n must be an integer 1–{_MAX_RECENT}, got {n!r}"
+        )
+
+
+def _validate_clock_s(clock_s: int) -> None:
+    if not isinstance(clock_s, int) or clock_s < 0 or clock_s > _MAX_CLOCK_S:
+        raise ValueError(
+            f"clock_s must be an integer 0–{_MAX_CLOCK_S}, got {clock_s!r}"
         )
 
 
@@ -86,6 +94,29 @@ class KqlBackend(Protocol):
         n is capped at 10.  Returns list of {event_id, match_clock_s,
         event_type, team_id, player_id, outcome} dicts.
         """
+        ...
+
+    def live_matches(self) -> list[dict]:
+        """Matches that received events in the last 30 minutes.
+
+        Returns list of {match_id, event_count, last_clock_s, last_ingested}.
+        """
+        ...
+
+    def events_since(self, match_id: str, clock_s: int) -> list[dict]:
+        """All events for a match with match_clock_s > clock_s, ascending.
+
+        Returns list of event dicts with same shape as recent_events rows plus
+        x, y, to_x, to_y.
+        """
+        ...
+
+    def latest_snapshot(self, match_id: str) -> dict | None:
+        """Most recent position snapshot for a match, or None if none exists."""
+        ...
+
+    def match_snapshot(self, match_id: str, snapshot_id: str) -> dict | None:
+        """A specific snapshot by id, or None if not found."""
         ...
 
 
@@ -183,6 +214,70 @@ class FabricKql:
             for r in rows
         ]
 
+    def live_matches(self) -> list[dict]:
+        rows = self._run("LiveMatches()")
+        return [
+            {
+                "match_id": r.get("match_id"),
+                "event_count": int(r.get("event_count", 0)),
+                "last_clock_s": int(r.get("last_clock_s", 0)),
+                "last_ingested": str(r.get("last_ingested", "")),
+            }
+            for r in rows
+        ]
+
+    def events_since(self, match_id: str, clock_s: int) -> list[dict]:
+        _validate_match_id(match_id)
+        _validate_clock_s(clock_s)
+        rows = self._run(f'EventsSince("{match_id}", {clock_s})')
+        return [
+            {
+                "event_id": r.get("event_id"),
+                "match_id": r.get("match_id"),
+                "match_clock_s": r.get("match_clock_s"),
+                "minute": r.get("minute"),
+                "event_type": r.get("event_type"),
+                "team_id": r.get("team_id"),
+                "player_id": r.get("player_id"),
+                "outcome": r.get("outcome"),
+                "x": r.get("x"),
+                "y": r.get("y"),
+                "to_x": r.get("to_x"),
+                "to_y": r.get("to_y"),
+            }
+            for r in rows
+        ]
+
+    def latest_snapshot(self, match_id: str) -> dict | None:
+        _validate_match_id(match_id)
+        rows = self._run(f'LatestSnapshot("{match_id}")')
+        if not rows:
+            return None
+        r = rows[0]
+        return {
+            "snapshot_id": r.get("snapshot_id"),
+            "match_id": r.get("match_id"),
+            "match_clock_s": r.get("match_clock_s"),
+            "positions": r.get("positions"),
+        }
+
+    def match_snapshot(self, match_id: str, snapshot_id: str) -> dict | None:
+        _validate_match_id(match_id)
+        if not isinstance(snapshot_id, str) or not snapshot_id.startswith("sn_"):
+            raise ValueError(
+                f"snapshot_id {snapshot_id!r} must start with 'sn_'"
+            )
+        rows = self._run(f'MatchSnapshot("{match_id}", "{snapshot_id}")')
+        if not rows:
+            return None
+        r = rows[0]
+        return {
+            "snapshot_id": r.get("snapshot_id"),
+            "match_id": r.get("match_id"),
+            "match_clock_s": r.get("match_clock_s"),
+            "positions": r.get("positions"),
+        }
+
 
 # ---------------------------------------------------------------------------
 # LocalKql – local Python (tests and replay)
@@ -196,8 +291,9 @@ class LocalKql:
     No network required; suitable for tests and replay mode.
     """
 
-    def __init__(self, events: list) -> None:
+    def __init__(self, events: list, snapshots: list | None = None) -> None:
         self._events = events
+        self._snapshots = snapshots or []
 
     def match_stats(self, match_id: str) -> dict:
         _validate_match_id(match_id)
@@ -267,3 +363,74 @@ class LocalKql:
             }
             for e in evs[:n]
         ]
+
+    def live_matches(self) -> list[dict]:
+        """Local: treat all match_ids as live, reporting last event clock."""
+        seen: dict[str, dict] = {}
+        for e in self._events:
+            mid = e.match_id
+            if mid not in seen or e.match_clock_s > seen[mid]["last_clock_s"]:
+                seen[mid] = {
+                    "match_id": mid,
+                    "event_count": 0,
+                    "last_clock_s": e.match_clock_s,
+                    "last_ingested": "",
+                }
+            seen[mid]["event_count"] += 1
+        return list(seen.values())
+
+    def events_since(self, match_id: str, clock_s: int) -> list[dict]:
+        _validate_match_id(match_id)
+        _validate_clock_s(clock_s)
+        evs = sorted(
+            (e for e in self._events if e.match_id == match_id and e.match_clock_s > clock_s),
+            key=lambda e: e.match_clock_s,
+        )
+        return [
+            {
+                "event_id": e.event_id,
+                "match_id": e.match_id,
+                "match_clock_s": e.match_clock_s,
+                "minute": e.match_clock_s // 60,
+                "event_type": str(e.event_type),
+                "team_id": e.team_id,
+                "player_id": e.player_id,
+                "outcome": str(e.outcome) if e.outcome else None,
+                "x": getattr(e, "x", None),
+                "y": getattr(e, "y", None),
+                "to_x": getattr(e, "to_x", None),
+                "to_y": getattr(e, "to_y", None),
+            }
+            for e in evs
+        ]
+
+    def latest_snapshot(self, match_id: str) -> dict | None:
+        _validate_match_id(match_id)
+        snaps = getattr(self, "_snapshots", [])
+        candidates = [s for s in snaps if s.match_id == match_id]
+        if not candidates:
+            return None
+        best = max(candidates, key=lambda s: s.match_clock_s)
+        return {
+            "snapshot_id": best.snapshot_id,
+            "match_id": best.match_id,
+            "match_clock_s": best.match_clock_s,
+            "positions": [p.model_dump() for p in best.positions],
+        }
+
+    def match_snapshot(self, match_id: str, snapshot_id: str) -> dict | None:
+        _validate_match_id(match_id)
+        if not isinstance(snapshot_id, str) or not snapshot_id.startswith("sn_"):
+            raise ValueError(
+                f"snapshot_id {snapshot_id!r} must start with 'sn_'"
+            )
+        snaps = getattr(self, "_snapshots", [])
+        for s in snaps:
+            if s.match_id == match_id and s.snapshot_id == snapshot_id:
+                return {
+                    "snapshot_id": s.snapshot_id,
+                    "match_id": s.match_id,
+                    "match_clock_s": s.match_clock_s,
+                    "positions": [p.model_dump() for p in s.positions],
+                }
+        return None

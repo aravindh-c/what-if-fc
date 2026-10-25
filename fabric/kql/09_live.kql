@@ -1,0 +1,64 @@
+// Live-match KQL functions – discover in-progress matches and poll new events.
+//
+// These functions are read-only; they never modify Eventhouse data.
+// All functions use stored-function-only calls (no free-form queries at the app layer).
+
+// LiveMatches() – matches that have received at least one event in the last 30 minutes.
+//
+// Returns: match_id, event_count, last_clock_s, last_ingested
+//
+// Example: LiveMatches()
+.create-or-alter function with (folder="whatif") LiveMatches() {
+    EventsClean()
+    | where EventEnqueuedUtcTime >= ago(30m)
+    | summarize
+        event_count   = count(),
+        last_clock_s  = max(match_clock_s),
+        last_ingested = max(EventEnqueuedUtcTime)
+      by match_id
+    | project match_id, event_count, last_clock_s, last_ingested
+}
+
+// EventsSince(p_match_id, p_clock_s) – all events for a match after the given clock_s.
+//
+// Used by the moment watcher to poll for new events without re-reading old ones.
+// Returns rows in ascending clock order so the caller can accumulate them easily.
+//
+// Example: EventsSince("match_s7_T01_T02", 600)
+.create-or-alter function with (folder="whatif")
+    EventsSince(p_match_id:string, p_clock_s:long)
+{
+    EventsClean()
+    | where match_id == p_match_id and match_clock_s > p_clock_s
+    | project
+        event_id, match_id, match_clock_s, minute,
+        event_type, team_id, player_id, outcome,
+        x, y, to_x, to_y
+    | order by match_clock_s asc
+}
+
+// LatestSnapshot(p_match_id) – the most recent position snapshot for a match.
+//
+// Returns a single row (or nothing if no snapshot exists yet).
+//
+// Example: LatestSnapshot("match_s7_T01_T02")
+.create-or-alter function with (folder="whatif")
+    LatestSnapshot(p_match_id:string)
+{
+    SnapshotsClean()
+    | where match_id == p_match_id
+    | top 1 by match_clock_s desc
+    | project snapshot_id, match_id, match_clock_s, positions
+}
+
+// MatchSnapshot(p_match_id, p_snapshot_id) – re-exports GetSnapshot for consistency.
+//
+// The live watcher uses this name so all live calls share the "09_live" namespace;
+// the implementation delegates to GetSnapshot.
+//
+// Example: MatchSnapshot("match_s7_T01_T02", "sn_000042")
+.create-or-alter function with (folder="whatif")
+    MatchSnapshot(p_match_id:string, p_snapshot_id:string)
+{
+    GetSnapshot(p_match_id, p_snapshot_id)
+}
