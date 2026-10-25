@@ -199,6 +199,8 @@ async def _run_overlay(
         timeout_s=timeout_s,
         _agents=None if use_agents else (_NoOpAgent(), _NoOpAgent()),
     )
+    if not use_agents and log.get("source") == "template":
+        log = {**log, "fallback_reason": "agents were not run for this build"}
     return overlay, log
 
 
@@ -206,7 +208,7 @@ class _NoOpAgent:
     """Stub that returns immediately — forces template fallback with no network call."""
 
     async def run(self, *args: object, **kwargs: object) -> None:
-        raise RuntimeError("agents disabled (--no-agents)")
+        raise RuntimeError("agents disabled")
 
 
 # ---------------------------------------------------------------------------
