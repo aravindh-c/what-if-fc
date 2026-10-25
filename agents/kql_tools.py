@@ -107,7 +107,7 @@ class KqlBackend(Protocol):
         """All events for a match with match_clock_s > clock_s, ascending.
 
         Returns list of event dicts with same shape as recent_events rows plus
-        x, y, to_x, to_y.
+        x, y, end_x, end_y and all other MatchEvent fields.
         """
         ...
 
@@ -230,23 +230,7 @@ class FabricKql:
         _validate_match_id(match_id)
         _validate_clock_s(clock_s)
         rows = self._run(f'EventsSince("{match_id}", {clock_s})')
-        return [
-            {
-                "event_id": r.get("event_id"),
-                "match_id": r.get("match_id"),
-                "match_clock_s": r.get("match_clock_s"),
-                "minute": r.get("minute"),
-                "event_type": r.get("event_type"),
-                "team_id": r.get("team_id"),
-                "player_id": r.get("player_id"),
-                "outcome": r.get("outcome"),
-                "x": r.get("x"),
-                "y": r.get("y"),
-                "to_x": r.get("to_x"),
-                "to_y": r.get("to_y"),
-            }
-            for r in rows
-        ]
+        return [dict(r) for r in rows]
 
     def latest_snapshot(self, match_id: str) -> dict | None:
         _validate_match_id(match_id)
@@ -390,16 +374,23 @@ class LocalKql:
             {
                 "event_id": e.event_id,
                 "match_id": e.match_id,
+                "scenario_id": e.scenario_id,
+                "seed": e.seed,
+                "event_time": e.event_time,
                 "match_clock_s": e.match_clock_s,
-                "minute": e.match_clock_s // 60,
-                "event_type": str(e.event_type),
+                "period": e.period,
+                "event_type": e.event_type.value,
                 "team_id": e.team_id,
                 "player_id": e.player_id,
-                "outcome": str(e.outcome) if e.outcome else None,
-                "x": getattr(e, "x", None),
-                "y": getattr(e, "y", None),
-                "to_x": getattr(e, "to_x", None),
-                "to_y": getattr(e, "to_y", None),
+                "possession_id": e.possession_id,
+                "x": e.x,
+                "y": e.y,
+                "end_x": e.end_x,
+                "end_y": e.end_y,
+                "outcome": e.outcome.value if e.outcome else None,
+                "receiver_id": e.receiver_id,
+                "pressure_level": e.pressure_level,
+                "snapshot_id": e.snapshot_id,
             }
             for e in evs
         ]
