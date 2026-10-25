@@ -30,10 +30,7 @@
 {
     EventsClean()
     | where match_id == p_match_id and match_clock_s > p_clock_s
-    | project
-        event_id, match_id, match_clock_s, minute,
-        event_type, team_id, player_id, outcome,
-        x, y, to_x, to_y
+    | project-away EventProcessedUtcTime, PartitionId, EventEnqueuedUtcTime, minute
     | order by match_clock_s asc
 }
 
