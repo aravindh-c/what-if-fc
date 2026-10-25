@@ -111,6 +111,11 @@ export interface OverlayData {
   text: OverlayTextData
 }
 
+export interface LiveOverlay extends OverlayData {
+  ledger: LedgerData | null
+  frame_team_id: string | null
+}
+
 export interface FrameData {
   snapshots: Record<string, string>
   overlays: Record<string, string>
@@ -195,11 +200,22 @@ export interface LiveMatch {
   last_ingested: string
 }
 
+export interface LiveStateEvent {
+  event_id: string
+  match_clock_s: number
+  event_type: string
+  team_id?: string
+  player_id?: string
+}
+
 export interface LiveState {
   match_id: string
   clock_s: number
   score: Record<string, number>
-  latest_snapshot: Record<string, unknown> | null
+  latest_snapshot: SnapshotData | null
+  possession_team_id: string | null
+  events: LiveStateEvent[]
+  skipped_rows: number
   simulate_outage: boolean
   overlay_count: number
 }

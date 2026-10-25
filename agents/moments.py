@@ -1,16 +1,21 @@
 """Shared moment-processing helpers for the replay builder and live watcher.
 
 Exports:
-    overlay_id(match_id, event_id) -> str
-    make_goal_twin(scorer_id)      -> TwinResult
-    build_ledger(packet, twin, players, events, log) -> dict
-    NoOpAgent                      -- forces template fallback
+    overlay_id(match_id, event_id)  -> str
+    make_goal_twin(scorer_id)       -> TwinResult
+    build_ledger(...)               -> dict
+    build_live_meta(match_id)       -> dict   (same shape as replay bundles)
+    NoOpAgent                       -- forces template fallback
 """
 
 from __future__ import annotations
 
 import hashlib
+import re
+from datetime import UTC, datetime
 from typing import Any
+
+_MATCH_ID_RE = re.compile(r"_s(\d+)_([A-Za-z0-9]+)_([A-Za-z0-9]+)$")
 
 
 def overlay_id(match_id: str, event_id: str) -> str:
@@ -114,3 +119,49 @@ class NoOpAgent:
 
     async def run(self, *args: object, **kwargs: object) -> None:
         raise RuntimeError("agents disabled")
+
+
+def build_live_meta(match_id: str) -> dict[str, Any]:
+    """Return meta for a live match in the same shape as offline replay bundles."""
+    m = _MATCH_ID_RE.search(match_id)
+    if m:
+        seed, home_id, away_id = int(m.group(1)), m.group(2), m.group(3)
+    else:
+        seed, home_id, away_id = 7, "T01", "T02"
+
+    from simulator.reference_data import build_players, build_teams
+
+    players = build_players(seed)
+    all_teams = {t.team_id: t for t in build_teams()}
+    home = all_teams.get(home_id)
+    away = all_teams.get(away_id)
+
+    teams_out: dict[str, Any] = {}
+    for t_id, t_obj in ((home_id, home), (away_id, away)):
+        if t_obj is not None:
+            teams_out[t_id] = {
+                "name": t_obj.name,
+                "short_name": t_obj.short_name,
+                "formation": t_obj.formation,
+                "style": t_obj.style,
+            }
+
+    home_name = home.name if home else home_id
+    away_name = away.name if away else away_id
+    return {
+        "replay_id": match_id,
+        "kind": "match",
+        "title": f"{home_name} vs {away_name}",
+        "teams": teams_out,
+        "players": {
+            p.player_id: {
+                "name": p.name,
+                "role": str(p.role),
+                "team_id": p.team_id,
+                "shirt_number": p.shirt_number,
+            }
+            for p in players
+        },
+        "built_at": datetime.now(UTC).isoformat(),
+        "twin_version": "twin-v1",
+    }

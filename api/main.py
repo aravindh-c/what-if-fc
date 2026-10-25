@@ -170,8 +170,19 @@ def live_matches() -> list[dict[str, Any]]:
     return kql.live_matches()
 
 
+@app.get("/api/live/{match_id}/meta")
+def live_meta(match_id: str) -> dict[str, Any]:
+    """Return match metadata (teams, players) in the same shape as replay bundles."""
+    from agents.moments import build_live_meta
+
+    try:
+        return build_live_meta(match_id)
+    except Exception as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
 @app.post("/api/live/{match_id}/watch", status_code=202)
-def watch_match(match_id: str) -> dict[str, str]:
+async def watch_match(match_id: str) -> dict[str, str]:
     """Start the background watcher for *match_id*."""
     from agents.kql_tools import _validate_match_id  # noqa: PLC2701
 
@@ -205,6 +216,7 @@ def live_state(match_id: str, since_clock_s: int = 0) -> dict[str, Any]:
             "snapshot_id": best.snapshot_id,
             "match_id": best.match_id,
             "match_clock_s": best.match_clock_s,
+            "positions": [p.model_dump() for p in best.positions],
         }
         for ev in reversed(state.events):
             if ev.snapshot_id == best.snapshot_id and ev.team_id:
@@ -239,12 +251,27 @@ def live_state(match_id: str, since_clock_s: int = 0) -> dict[str, Any]:
 
 @app.get("/api/live/{match_id}/overlays")
 def live_overlays(match_id: str, since_clock_s: int = 0) -> list[dict[str, Any]]:
-    """Return live overlays with match_clock_s > since_clock_s."""
-    from api.live import get_overlays, get_state
+    """Return overlays with match_clock_s > since_clock_s, each with its ledger and frame team."""
+    from api.live import get_state
 
-    if get_state(match_id) is None:
+    state = get_state(match_id)
+    if state is None:
         raise HTTPException(status_code=404, detail=f"match {match_id!r} not watched")
-    return get_overlays(match_id, since_clock_s)
+
+    events_by_id = {e.event_id: e for e in state.events}
+    result: list[dict[str, Any]] = []
+    for ov in state.overlays:
+        if ov.get("match_clock_s", 0) <= since_clock_s:
+            continue
+        ov_id = ov["overlay_id"]
+        frame_team_id: str | None = None
+        ev_ids = ov.get("evidence", {}).get("event_ids", [])
+        if ev_ids:
+            src_ev = events_by_id.get(ev_ids[0])
+            if src_ev and src_ev.team_id:
+                frame_team_id = src_ev.team_id
+        result.append({**ov, "ledger": state.ledgers.get(ov_id), "frame_team_id": frame_team_id})
+    return result
 
 
 @app.post("/api/live/{match_id}/simulate-outage", status_code=200)

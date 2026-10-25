@@ -1,4 +1,4 @@
-import type { CatalogEntry, LiveMatch, LiveState, OverlayData, ReplayBundle } from './types.ts'
+import type { BundleMeta, CatalogEntry, LiveMatch, LiveOverlay, LiveState, ReplayBundle } from './types.ts'
 
 const BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? 'http://127.0.0.1:8000'
 
@@ -38,8 +38,12 @@ export function getLiveState(matchId: string, sinceClockS = 0): Promise<LiveStat
   return fetchJson<LiveState>(`/api/live/${encodeURIComponent(matchId)}/state?since_clock_s=${sinceClockS}`)
 }
 
-export function getLiveOverlays(matchId: string, sinceClockS = 0): Promise<OverlayData[]> {
-  return fetchJson<OverlayData[]>(`/api/live/${encodeURIComponent(matchId)}/overlays?since_clock_s=${sinceClockS}`)
+export function getLiveMeta(matchId: string): Promise<BundleMeta> {
+  return fetchJson<BundleMeta>(`/api/live/${encodeURIComponent(matchId)}/meta`)
+}
+
+export function getLiveOverlays(matchId: string, sinceClockS = 0): Promise<LiveOverlay[]> {
+  return fetchJson<LiveOverlay[]>(`/api/live/${encodeURIComponent(matchId)}/overlays?since_clock_s=${sinceClockS}`)
 }
 
 export function setSimulateOutage(matchId: string, enabled: boolean): Promise<{ match_id: string; simulate_outage: boolean }> {
