@@ -116,6 +116,49 @@ export interface FrameData {
   overlays: Record<string, string>
 }
 
+export interface LedgerCandidate {
+  player_id: string | null
+  player_name: string | null
+  T: number
+  P: number
+  F: number
+  R: number
+  S: number
+  nearest_defender_m: number
+  is_actual: boolean
+}
+
+export interface LedgerFormula {
+  version: string
+  weights: Record<string, number>
+  ghost_rule: string
+}
+
+export interface LedgerRun {
+  source: string
+  attempts: number
+  fallback_reason?: string | null
+  errors_attempt1?: string[]
+  durations_s?: number[]
+}
+
+export interface LedgerEvent {
+  event_id: string
+  match_clock_s: number
+  event_type: string
+  player_name: string | null
+  team_id: string
+  outcome: string | null
+}
+
+export interface LedgerData {
+  packet: Record<string, unknown>
+  events: LedgerEvent[]
+  candidates: LedgerCandidate[]
+  formula: LedgerFormula
+  run: LedgerRun
+}
+
 export interface ReplayBundle {
   meta: BundleMeta
   events: EventData[]
@@ -128,6 +171,7 @@ export interface ReplayBundle {
   headline_moments: Record<string, unknown>[]
   overlays: OverlayData[]
   frames: FrameData
+  ledgers?: Record<string, LedgerData>
 }
 
 export interface CatalogEntry {

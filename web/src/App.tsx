@@ -1,5 +1,15 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import type { CatalogEntry, OverlayData, ReplayBundle } from './types.ts'
+
+export type DisplayMode = 'fan' | 'analyst' | 'compare'
+
+function getStoredMode(): DisplayMode {
+  try {
+    const v = localStorage.getItem('whatiffc_mode')
+    if (v === 'fan' || v === 'analyst' || v === 'compare') return v
+  } catch { /* ignore */ }
+  return 'fan'
+}
 import { listReplays, loadReplay } from './api.ts'
 import { positionsAt, ballAt, scoreAt, maxClockS, tickStep } from './lib/playback.ts'
 import Pitch from './components/Pitch.tsx'
@@ -157,6 +167,12 @@ export default function App() {
   const [bundleLoading, setBundleLoading] = useState(false)
   const [bundleError, setBundleError] = useState<string | null>(null)
   const [animKey, setAnimKey] = useState(0)
+  const [displayMode, setDisplayMode] = useState<DisplayMode>(getStoredMode)
+
+  const changeMode = useCallback((m: DisplayMode) => {
+    try { localStorage.setItem('whatiffc_mode', m) } catch { /* ignore */ }
+    setDisplayMode(m)
+  }, [])
 
   const { clockS, playing, speed, activeOverlay, toggle, play, setSpeed, seek, showMoment } = usePlayback(bundle)
 
@@ -244,6 +260,8 @@ export default function App() {
   const headerTitle = isScenario ? b.meta.title : replayTitle(b)
   const headerSub   = isScenario ? (b.meta.scenario_why ?? null) : seedSubtitle(b.meta.replay_id)
 
+  const activeLedger = activeOverlay && b.ledgers ? b.ledgers[activeOverlay.overlay_id] : undefined
+
   return (
     <div className="app-root">
       <header className="app-header">
@@ -251,6 +269,18 @@ export default function App() {
         <div className="app-header-title">
           <span className="app-header-name">{headerTitle}</span>
           {headerSub && <span className="app-header-sub">{headerSub}</span>}
+        </div>
+        <div className="mode-switch" role="group" aria-label="Display mode">
+          {(['fan', 'analyst', 'compare'] as DisplayMode[]).map(m => (
+            <button
+              key={m}
+              className={`mode-btn${displayMode === m ? ' active' : ''}`}
+              onClick={() => changeMode(m)}
+              aria-pressed={displayMode === m}
+            >
+              {m === 'fan' ? 'Fan' : m === 'analyst' ? 'Analyst' : 'Compare'}
+            </button>
+          ))}
         </div>
       </header>
       <main className="app-main">
@@ -271,7 +301,7 @@ export default function App() {
           </div>
           <div className="moment-panel">
             {activeOverlay
-              ? <MomentCard overlay={activeOverlay} bundle={b} />
+              ? <MomentCard overlay={activeOverlay} bundle={b} mode={displayMode} ledger={activeLedger} />
               : <p className="moment-panel-empty">Play the match to see key moments</p>
             }
             {isScenario && (
