@@ -15,13 +15,19 @@ const MOMENT_COLORS: Record<string, string> = {
   turnover:   '#F24040',
 }
 
+const KEY_ITEMS = [
+  { color: '#BFE8FF', label: 'Ghost pass' },
+  { color: '#E3A52B', label: 'Goal' },
+  { color: '#F24040', label: 'Turnover' },
+]
+
 export default function Timeline({ durationS, clockS, overlays, onSeek, onPlay }: TimelineProps) {
   if (durationS <= 0) return null
 
   const pct = (t: number) => `${Math.min(100, (t / durationS) * 100).toFixed(2)}%`
 
   return (
-    <div className="timeline" role="group" aria-label="Match timeline">
+    <div className="timeline" role="group" aria-label="Match timeline" data-tour="timeline">
       <div
         className="timeline-track"
         role="slider"
@@ -64,6 +70,14 @@ export default function Timeline({ durationS, clockS, overlays, onSeek, onPlay }
         })}
 
         <div className="timeline-head" style={{ left: pct(clockS) }} aria-hidden="true" />
+      </div>
+      <div className="timeline-key" aria-label="Timeline key">
+        {KEY_ITEMS.map(({ color, label }) => (
+          <span key={label} className="timeline-key-item">
+            <span className="timeline-key-dot" style={{ background: color }} aria-hidden="true"/>
+            {label}
+          </span>
+        ))}
       </div>
     </div>
   )
