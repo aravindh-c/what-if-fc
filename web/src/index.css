@@ -68,7 +68,7 @@ body {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   padding: 0 16px;
-  height: 48px;
+  min-height: 48px;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -88,6 +88,8 @@ body {
   flex-direction: column;
   gap: 0;
   min-width: 0;
+  flex: 1;
+  overflow: hidden;
 }
 
 .app-header-name {
@@ -103,6 +105,10 @@ body {
   font-size: 0.72rem;
   color: var(--text-muted);
   letter-spacing: 0.03em;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
 }
 
 .app-main {

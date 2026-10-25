@@ -435,7 +435,7 @@ export default function App() {
         <span className="app-logo-wrap" aria-hidden="true"><Logo size={20} /></span>
         <div className="app-header-title">
           <span className="app-header-name">{headerTitle}</span>
-          {headerSub && <span className="app-header-sub">{headerSub}</span>}
+          {headerSub && <span className="app-header-sub" title={headerSub}>{headerSub}</span>}
         </div>
         <div className="mode-switch" role="group" aria-label="Display mode" data-tour="mode-switch">
           {(['fan', 'analyst', 'compare'] as DisplayMode[]).map(m => (
@@ -461,17 +461,19 @@ export default function App() {
         {!isScenario && <Scoreboard bundle={b} score={score} clockS={clockS} />}
         <div className="replay-body">
           <div className="pitch-col">
-            <div className="pitch-wrap" data-tour="pitch">
-              <Pitch
-                positions={positions}
-                ball={ball}
-                bundle={b}
-                activeOverlay={activeOverlay}
-                homeTeam={homeTeam}
-                animKey={animKey}
-              />
+            <div data-tour="pitch">
+              <div className="pitch-wrap">
+                <Pitch
+                  positions={positions}
+                  ball={ball}
+                  bundle={b}
+                  activeOverlay={activeOverlay}
+                  homeTeam={homeTeam}
+                  animKey={animKey}
+                />
+              </div>
+              {activeOverlay?.moment_type === 'ghost_pass' && <PitchLegend />}
             </div>
-            {activeOverlay?.moment_type === 'ghost_pass' && <PitchLegend />}
           </div>
           {sidePanel}
         </div>
