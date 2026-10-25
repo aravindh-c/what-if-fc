@@ -237,3 +237,67 @@ def test_build_narrative_no_banned_terms() -> None:
     ).lower()
     for banned in ("xg", "xa", "xt", "expected goals", "probability", "% chance"):
         assert banned not in all_text, f"Banned term {banned!r} in template text"
+
+
+# ---------------------------------------------------------------------------
+# Turnover player naming: ball_won_by must appear in text, not ball_lost_by
+# ---------------------------------------------------------------------------
+
+
+def test_turnover_text_names_ball_winner() -> None:
+    """Seed 11's 69' turnover: Noel Rutherglen wins the ball, Wren Falkner loses it."""
+    from simulator.reference_data import build_players
+    from simulator.run import run_match
+    from analytics.metrics import key_moments, pass_event_for
+    from analytics.tactical_twin import score_pass as _score_pass
+
+    match_id, events, snapshots = run_match(11, "T01", "T02")
+    snap_map = {s.snapshot_id: s for s in snapshots}
+    roster = build_players(11)
+    roster_map = {p.player_id: p.name for p in roster}
+
+    # Find the 69-minute final_third_turnover
+    km_69 = next(
+        (
+            km for km in key_moments(events)
+            if km.moment_type == "final_third_turnover"
+            and km.match_clock_s // 60 == 69
+        ),
+        None,
+    )
+    assert km_69 is not None, "Seed 11 must have a final_third_turnover at 69'"
+
+    pass_ev = pass_event_for(km_69, events)
+    assert pass_ev is not None, "69' turnover must have a source pass event"
+
+    snap = snap_map.get(pass_ev.snapshot_id or "")
+    assert snap is not None, "69' turnover source pass must have a snapshot"
+
+    twin = _score_pass(pass_ev, snap)
+    packet = build_evidence_packet(km_69, events, snap, twin, match_id)
+
+    assert packet.ball_won_by is not None, "ball_won_by must be set for FTT moments"
+    assert packet.ball_lost_by is not None, "ball_lost_by must be set for FTT moments"
+
+    winner_name = roster_map.get(packet.ball_won_by, "")
+    loser_name = roster_map.get(packet.ball_lost_by, "")
+
+    assert winner_name == "Noel Rutherglen", (
+        f"Expected ball_won_by=Noel Rutherglen, got {winner_name!r}"
+    )
+    assert loser_name == "Wren Falkner", (
+        f"Expected ball_lost_by=Wren Falkner, got {loser_name!r}"
+    )
+
+    result = build_narrative(packet, roster)
+    full_text = " ".join([
+        result.analyst["en"].headline, result.analyst["en"].body,
+        result.fan["en"].headline, result.fan["en"].body,
+    ])
+
+    assert "Noel Rutherglen" in full_text, (
+        f"Ball winner 'Noel Rutherglen' not found in turnover text:\n{full_text}"
+    )
+    assert "Wren Falkner wins" not in full_text, (
+        f"Ball loser 'Wren Falkner wins' must not appear in turnover text:\n{full_text}"
+    )

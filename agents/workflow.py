@@ -139,6 +139,8 @@ def _packet_summary(packet: Any, players: dict | None = None) -> dict:
         "moment_score": packet.moment_score,
         "event_ids": list(packet.event_ids),
         "passer_id": packet.passer_id,
+        "ball_won_by": packet.ball_won_by,
+        "ball_lost_by": packet.ball_lost_by,
         "actual_receiver_id": packet.actual_receiver_id,
         "twin_ghost_player_id": packet.twin_ghost_player_id,
         "highlight_defenders": list(packet.highlight_defenders),

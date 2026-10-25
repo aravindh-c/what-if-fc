@@ -58,6 +58,8 @@ class EvidencePacket(BaseModel):
     ghost_nearest_defender_m: float | None
     actual_progress_m: float | None = None   # end_x − start_x; negative = backwards
     ghost_progress_m: float | None = None
+    ball_won_by: str | None = None           # for turnover: player who won the ball
+    ball_lost_by: str | None = None          # for turnover: player who lost the ball
 
 
 _LABEL = "heuristic tactical option score, not a probability"
@@ -217,4 +219,14 @@ def build_evidence_packet(
         ghost_nearest_defender_m=ghost_nearest_def,
         actual_progress_m=actual_progress,
         ghost_progress_m=ghost_progress,
+        ball_won_by=(
+            moment_ev.player_id
+            if moment.moment_type == "final_third_turnover" and moment_ev
+            else None
+        ),
+        ball_lost_by=(
+            trigger_ev.player_id
+            if moment.moment_type == "final_third_turnover" and trigger_ev
+            else None
+        ),
     )

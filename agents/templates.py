@@ -116,7 +116,8 @@ def _goal_text(packet, roster_map: dict[str, str]) -> OverlayText:
 
 
 def _turnover_text(packet, roster_map: dict[str, str]) -> OverlayText:
-    player = _name(packet.passer_id, roster_map)
+    winner_id = packet.ball_won_by if packet.ball_won_by is not None else packet.passer_id
+    player = _name(winner_id, roster_map)
     pres_team, pres_val = _team_pressure(packet)
     # Both teams' pressure indices for analyst body
     pres = packet.live_metrics.pressure_index
