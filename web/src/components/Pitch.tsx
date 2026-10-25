@@ -68,6 +68,16 @@ export default function Pitch({ positions, ball, bundle, activeOverlay, homeTeam
   if (teamIds[0]) teamColors[teamIds[0]] = '#E3A52B'
   if (teamIds[1]) teamColors[teamIds[1]] = '#3E5C9A'
 
+  // Collect tag data for second-pass rendering (so tags sit above all counters)
+  const tagData: Array<{ x: number; y: number; name: string }> = []
+  for (const p of positions) {
+    if (!tagIds.has(p.playerId)) continue
+    const meta = playerMap[p.playerId]
+    if (!meta) continue
+    const name = meta.name.split(' ').pop() ?? ''
+    tagData.push({ x: p.x, y: p.y, name })
+  }
+
   return (
     <svg
       viewBox={`0 0 ${L} ${W}`}
@@ -162,11 +172,10 @@ export default function Pitch({ positions, ball, bundle, activeOverlay, homeTeam
         />
       )}
 
-      {/* Players */}
+      {/* Players — first pass: all counters (defender rings + filled circles + number labels) */}
       {positions.map(p => {
         const color = teamColors[p.teamId] ?? '#888'
         const isDef = defenderIds.has(p.playerId)
-        const isTag = tagIds.has(p.playerId)
         const isGhostTarget = ghostPass?.receiver_id === p.playerId
         const meta = playerMap[p.playerId]
         const label = meta?.shirt_number != null
@@ -185,21 +194,37 @@ export default function Pitch({ positions, ball, bundle, activeOverlay, homeTeam
               fill={color} stroke="#0f1923" strokeWidth="0.3"
               className={isGhostTarget ? 'ghost-receiver-pulse' : ''}
             />
-            {isTag && meta && (
-              <text x={p.x} y={p.y - 2.8}
-                fontSize="1.8" textAnchor="middle"
-                fill="#F2F5EE" fontFamily="var(--font-display)" fontWeight="600"
-                style={{ pointerEvents: 'none' }}
-              >
-                {meta.name.split(' ').pop()}
-              </text>
-            )}
             <text x={p.x} y={p.y + 0.65}
               fontSize="1.5" textAnchor="middle"
               fill="#0f1923" fontWeight="700"
               style={{ pointerEvents: 'none' }}
             >
               {label}
+            </text>
+          </g>
+        )
+      })}
+
+      {/* Players — second pass: name tag pills drawn on top of all counters */}
+      {tagData.map(({ x, y, name }) => {
+        const charW = 1.55
+        const pillW = Math.max(name.length * charW + 2.0, 6)
+        const pillH = 2.6
+        const pillX = x - pillW / 2
+        const pillY = y - 5.0
+        return (
+          <g key={`tag-${x}-${y}`} style={{ pointerEvents: 'none' }}>
+            <rect
+              x={pillX} y={pillY}
+              width={pillW} height={pillH}
+              rx={1.2} ry={1.2}
+              fill="rgba(20,40,25,0.82)"
+            />
+            <text x={x} y={pillY + pillH - 0.55}
+              fontSize="1.8" textAnchor="middle"
+              fill="#F2F5EE" fontFamily="var(--font-display)" fontWeight="600"
+            >
+              {name}
             </text>
           </g>
         )
