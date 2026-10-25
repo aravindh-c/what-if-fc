@@ -141,16 +141,32 @@ az containerapp update \
 
 ## 5 — OIDC federated credential for GitHub Actions
 
-The CI deploy job uses `azure/login@v2` with OIDC. Set this up once:
+The CI deploy job uses `azure/login@v2` with OIDC and a **user-assigned managed
+identity** (`id-whatif-deploy`). No App Registration or service principal is needed.
 
-### 5a — Create an App Registration
+> **Critical — OIDC subject format**: GitHub's token for this repository uses numeric
+> owner and repository IDs in the subject claim, not the plain `owner/repo` slug.
+> The classic subject `repo:aravindh-c/what-if-fc:ref:refs/heads/main` fails with
+> **AADSTS700213**. Use the ID-based subject instead:
+>
+> ```
+> repo:aravindh-c@61825537/what-if-fc@1423213635:ref:refs/heads/main
+> ```
+>
+> (61825537 = GitHub user ID for aravindh-c; 1423213635 = repository ID for what-if-fc)
+
+### 5a — Create the deployment identity
 
 ```bash
-az ad app create --display-name what-if-fc-ghactions
-APP_ID=$(az ad app list --display-name what-if-fc-ghactions --query "[0].appId" -o tsv)
+az identity create \
+  --name id-whatif-deploy \
+  --resource-group rg-pl-hackathon \
+  --location centralindia
 
-az ad sp create --id "$APP_ID"
-SP_OBJECT_ID=$(az ad sp show --id "$APP_ID" --query id -o tsv)
+DEPLOY_CLIENT_ID=$(az identity show \
+  --name id-whatif-deploy \
+  --resource-group rg-pl-hackathon \
+  --query clientId -o tsv)
 ```
 
 ### 5b — Grant Contributor on the resource group
@@ -159,8 +175,7 @@ SP_OBJECT_ID=$(az ad sp show --id "$APP_ID" --query id -o tsv)
 SUBSCRIPTION_ID=$(az account show --query id -o tsv)
 
 az role assignment create \
-  --assignee-object-id "$SP_OBJECT_ID" \
-  --assignee-principal-type ServicePrincipal \
+  --assignee "$DEPLOY_CLIENT_ID" \
   --role Contributor \
   --scope "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/rg-pl-hackathon"
 ```
@@ -168,15 +183,13 @@ az role assignment create \
 ### 5c — Add a federated credential for the main branch
 
 ```bash
-az ad app federated-credential create \
-  --id "$APP_ID" \
-  --parameters '{
-    "name": "github-actions-main",
-    "issuer": "https://token.actions.githubusercontent.com",
-    "subject": "repo:aravindh-c/what-if-fc:ref:refs/heads/main",
-    "description": "GitHub Actions OIDC – main branch",
-    "audiences": ["api://AzureADTokenExchange"]
-  }'
+az identity federated-credential create \
+  --name github-actions-main \
+  --identity-name id-whatif-deploy \
+  --resource-group rg-pl-hackathon \
+  --issuer "https://token.actions.githubusercontent.com" \
+  --subject "repo:aravindh-c@61825537/what-if-fc@1423213635:ref:refs/heads/main" \
+  --audiences "api://AzureADTokenExchange"
 ```
 
 ### 5d — Add GitHub repository secrets
@@ -185,7 +198,7 @@ In **Settings → Secrets and variables → Actions**, add:
 
 | Secret | Value |
 |--------|-------|
-| `AZURE_CLIENT_ID` | `$APP_ID` (from step 5a) |
+| `AZURE_CLIENT_ID` | `$DEPLOY_CLIENT_ID` (client ID of `id-whatif-deploy`) |
 | `AZURE_TENANT_ID` | `az account show --query tenantId -o tsv` |
 | `AZURE_SUBSCRIPTION_ID` | `az account show --query id -o tsv` |
 

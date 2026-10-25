@@ -181,3 +181,24 @@ DEBUG: match_snapshot took 0.18s
 
 Fabric F2 dominates cost. A full end-to-end demo session (resume, stream, view
 overlays, pause) takes under 30 minutes of capacity time.
+
+---
+
+## 7 — CI deployment and OIDC identity
+
+The GitHub Actions `deploy` job in `.github/workflows/ci.yml` updates the Container
+App on every push to `main`. It authenticates with Azure using a **user-assigned
+managed identity** (`id-whatif-deploy`, Contributor on `rg-pl-hackathon`) via OIDC.
+
+> **OIDC subject — known gotcha**: the classic subject format
+> `repo:aravindh-c/what-if-fc:ref:refs/heads/main` fails with **AADSTS700213** for
+> this repository. GitHub issues tokens with numeric owner and repo IDs in the subject:
+>
+> ```
+> repo:aravindh-c@61825537/what-if-fc@1423213635:ref:refs/heads/main
+> ```
+>
+> The federated credential stored on `id-whatif-deploy` uses this ID-based subject.
+
+For the full setup procedure (identity creation, role assignment, federated credential,
+GitHub secrets) see **docs/deploy.md § 5**.
