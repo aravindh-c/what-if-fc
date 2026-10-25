@@ -1,7 +1,7 @@
 {
   "scenario_id": "high_press_escape",
   "title": "High Press Escape Route Missed",
-  "description": "T01's centre-back plays into the T02 high press instead of finding the DM who has dropped into space between the press lines.",
+  "description": "Kestrel Vale centre-back Felix Castellan plays into the Thornfield Rovers high press instead of finding DM Tariq Pellerin, who has dropped into space between the press lines.",
   "period": 1,
   "match_clock_s": 840,
   "home": "T01",
@@ -190,5 +190,5 @@
     "snapshot_id": "sn_d"
   },
   "expected_ghost_receiver_id": "T01-P10",
-  "why": "T01-P10 is open at (34,36) with the nearest T02 player 16 m away, while the pass to T01-P07 runs directly into T02-P14 who is 1.4 m from the target."
+  "why": "Tariq Pellerin is open with the nearest Thornfield Rovers player 16.3 m away, while the pass to Kofi Thackeray runs directly into Quinn Fairbrook who is just 1.4 m from the target."
 }

@@ -261,7 +261,7 @@ export default function App() {
   const dur = maxClockS(b)
 
   const headerTitle = isScenario ? b.meta.title : replayTitle(b)
-  const headerSub   = isScenario ? (b.meta.scenario_why ?? null) : seedSubtitle(b.meta.replay_id)
+  const headerSub   = isScenario ? (b.meta.scenario_description ?? null) : seedSubtitle(b.meta.replay_id)
 
   const activeLedger = activeOverlay && b.ledgers ? b.ledgers[activeOverlay.overlay_id] : undefined
   const showDrawer = drawerOpen && activeOverlay && activeLedger

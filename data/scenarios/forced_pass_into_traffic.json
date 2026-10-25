@@ -1,7 +1,7 @@
 {
   "scenario_id": "forced_pass_into_traffic",
   "title": "Forced Pass into Traffic",
-  "description": "T01's CM plays directly to the striker who is surrounded by three defenders, while the far-side winger is completely unmarked.",
+  "description": "Kestrel Vale's CM Hiro Hartigan plays directly to striker Kian Oyelaran, who is surrounded by three Thornfield Rovers defenders, while winger Rafael Fairbrook is completely unmarked on the far side.",
   "period": 1,
   "match_clock_s": 2280,
   "home": "T01",
@@ -190,5 +190,5 @@
     "snapshot_id": "sn_b"
   },
   "expected_ghost_receiver_id": "T01-P15",
-  "why": "T01-P15 is over 24 m from the nearest defender with an open lane from the CM, whereas T01-P17 receives into a three-defender trap with no room to turn."
+  "why": "Rafael Fairbrook is 22.5 m from the nearest Thornfield Rovers defender with an open lane from the CM, whereas Kian Oyelaran receives into a three-defender trap with no room to turn."
 }

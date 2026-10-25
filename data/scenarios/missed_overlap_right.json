@@ -1,7 +1,7 @@
 {
   "scenario_id": "missed_overlap_right",
   "title": "Missed Overlap on the Right",
-  "description": "T01's CM plays the ball back to the DM instead of finding the overlapping full-back who has run into space on the flank.",
+  "description": "Kestrel Vale's CM Hiro Hartigan plays the ball back to the DM instead of finding full-back Goran Kowalczyk, who has run into space on the flank with the overlap already made.",
   "period": 2,
   "match_clock_s": 3720,
   "home": "T01",
@@ -190,5 +190,5 @@
     "snapshot_id": "sn_a"
   },
   "expected_ghost_receiver_id": "T01-P08",
-  "why": "T01-P08 is 10 m clear of the nearest defender in advanced space with the overlap already made, while the DM receives possession backwards and T02-P04 has tight marking on the striker."
+  "why": "Goran Kowalczyk is 9.8 m clear of the nearest Thornfield Rovers defender (Zane Abernathy) in advanced space with the overlap already made, while the DM receives possession backwards and Oskar Ashgrove has tight marking on the striker."
 }

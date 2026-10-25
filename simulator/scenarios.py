@@ -256,8 +256,9 @@ def _build_scenarios() -> list[Scenario]:
             scenario_id="missed_overlap_right",
             title="Missed Overlap on the Right",
             description=(
-                "T01's CM plays the ball back to the DM instead of finding the"
-                " overlapping full-back who has run into space on the flank."
+                "Kestrel Vale's CM Hiro Hartigan plays the ball back to the DM"
+                " instead of finding full-back Goran Kowalczyk, who has run into"
+                " space on the flank with the overlap already made."
             ),
             period=2, match_clock_s=3720,
             in_possession="T01",
@@ -265,17 +266,19 @@ def _build_scenarios() -> list[Scenario]:
             actual_pass=pass_a,
             expected_ghost_receiver_id="T01-P08",
             why=(
-                "T01-P08 is 10 m clear of the nearest defender in advanced space"
-                " with the overlap already made, while the DM receives possession"
-                " backwards and T02-P04 has tight marking on the striker."
+                "Goran Kowalczyk is 9.8 m clear of the nearest Thornfield Rovers"
+                " defender (Zane Abernathy) in advanced space with the overlap"
+                " already made, while the DM receives possession backwards and"
+                " Oskar Ashgrove has tight marking on the striker."
             ),
         ),
         Scenario(
             scenario_id="forced_pass_into_traffic",
             title="Forced Pass into Traffic",
             description=(
-                "T01's CM plays directly to the striker who is surrounded by three"
-                " defenders, while the far-side winger is completely unmarked."
+                "Kestrel Vale's CM Hiro Hartigan plays directly to striker Kian"
+                " Oyelaran, who is surrounded by three Thornfield Rovers defenders,"
+                " while winger Rafael Fairbrook is completely unmarked on the far side."
             ),
             period=1, match_clock_s=2280,
             in_possession="T01",
@@ -283,17 +286,18 @@ def _build_scenarios() -> list[Scenario]:
             actual_pass=pass_b,
             expected_ghost_receiver_id="T01-P15",
             why=(
-                "T01-P15 is over 24 m from the nearest defender with an open lane"
-                " from the CM, whereas T01-P17 receives into a three-defender trap"
-                " with no room to turn."
+                "Rafael Fairbrook is 22.5 m from the nearest Thornfield Rovers"
+                " defender with an open lane from the CM, whereas Kian Oyelaran"
+                " receives into a three-defender trap with no room to turn."
             ),
         ),
         Scenario(
             scenario_id="late_counter",
             title="Late Counter-Attack Missed",
             description=(
-                "T01's CM chooses a sideways pass to the centre-back instead of"
-                " threading the ball to the onside striker free in the final third."
+                "Kestrel Vale's CM Farid Blackwood chooses a sideways pass to"
+                " centre-back Joaquin Castellan instead of threading the ball to"
+                " striker Kian Oyelaran, who is free in the final third."
             ),
             period=2, match_clock_s=5100,
             in_possession="T01",
@@ -301,17 +305,18 @@ def _build_scenarios() -> list[Scenario]:
             actual_pass=pass_c,
             expected_ghost_receiver_id="T01-P17",
             why=(
-                "T01-P17 is onside and over 11 m behind the nearest defender with a"
-                " clear lane to goal, while the pass to the CB surrenders all"
-                " forward momentum."
+                "Kian Oyelaran is onside and 11.7 m clear of the nearest Thornfield"
+                " Rovers defender with a clear lane to goal, while the pass to"
+                " Joaquin Castellan surrenders all forward momentum."
             ),
         ),
         Scenario(
             scenario_id="high_press_escape",
             title="High Press Escape Route Missed",
             description=(
-                "T01's centre-back plays into the T02 high press instead of finding"
-                " the DM who has dropped into space between the press lines."
+                "Kestrel Vale centre-back Felix Castellan plays into the Thornfield"
+                " Rovers high press instead of finding DM Tariq Pellerin, who has"
+                " dropped into space between the press lines."
             ),
             period=1, match_clock_s=840,
             in_possession="T01",
@@ -319,9 +324,9 @@ def _build_scenarios() -> list[Scenario]:
             actual_pass=pass_d,
             expected_ghost_receiver_id="T01-P10",
             why=(
-                "T01-P10 is open at (34,36) with the nearest T02 player 16 m away,"
-                " while the pass to T01-P07 runs directly into T02-P14 who is"
-                " 1.4 m from the target."
+                "Tariq Pellerin is open with the nearest Thornfield Rovers player"
+                " 16.3 m away, while the pass to Kofi Thackeray runs directly into"
+                " Quinn Fairbrook who is just 1.4 m from the target."
             ),
         ),
     ]

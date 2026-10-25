@@ -1,7 +1,7 @@
 {
   "scenario_id": "late_counter",
   "title": "Late Counter-Attack Missed",
-  "description": "T01's CM chooses a sideways pass to the centre-back instead of threading the ball to the onside striker free in the final third.",
+  "description": "Kestrel Vale's CM Farid Blackwood chooses a sideways pass to centre-back Joaquin Castellan instead of threading the ball to striker Kian Oyelaran, who is free in the final third.",
   "period": 2,
   "match_clock_s": 5100,
   "home": "T01",
@@ -190,5 +190,5 @@
     "snapshot_id": "sn_c"
   },
   "expected_ghost_receiver_id": "T01-P17",
-  "why": "T01-P17 is onside and over 11 m behind the nearest defender with a clear lane to goal, while the pass to the CB surrenders all forward momentum."
+  "why": "Kian Oyelaran is onside and 11.7 m clear of the nearest Thornfield Rovers defender with a clear lane to goal, while the pass to Joaquin Castellan surrenders all forward momentum."
 }
