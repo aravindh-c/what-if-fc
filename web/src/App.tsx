@@ -11,6 +11,7 @@ import MomentCard from './components/MomentCard.tsx'
 import PitchLegend from './components/PitchLegend.tsx'
 import EvidenceDrawer from './components/EvidenceDrawer.tsx'
 import LiveView from './components/LiveView.tsx'
+import LiveErrorBoundary from './components/LiveErrorBoundary.tsx'
 
 export type DisplayMode = 'fan' | 'analyst' | 'compare'
 
@@ -246,11 +247,14 @@ export default function App() {
   // Live match view
   if (liveMatchId) {
     return (
-      <LiveView
-        matchId={liveMatchId}
-        displayMode={displayMode}
-        onBack={() => setLiveMatchId(null)}
-      />
+      <LiveErrorBoundary onBack={() => setLiveMatchId(null)}>
+        <LiveView
+          matchId={liveMatchId}
+          displayMode={displayMode}
+          onChangeMode={changeMode}
+          onBack={() => setLiveMatchId(null)}
+        />
+      </LiveErrorBoundary>
     )
   }
 

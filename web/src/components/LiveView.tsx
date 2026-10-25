@@ -1,51 +1,113 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { DisplayMode } from '../App.tsx'
-import { getLiveOverlays, getLiveState, setSimulateOutage } from '../api.ts'
-import type { LedgerData, LiveState, OverlayData } from '../types.ts'
+import { getLiveMeta, getLiveOverlays, getLiveState, setSimulateOutage } from '../api.ts'
+import type { EventData, LedgerData, LiveOverlay, ReplayBundle } from '../types.ts'
+import { positionsAt } from '../lib/playback.ts'
 import EvidenceDrawer from './EvidenceDrawer.tsx'
 import MomentCard from './MomentCard.tsx'
 import Pitch from './Pitch.tsx'
 import PitchLegend from './PitchLegend.tsx'
+import Scoreboard from './Scoreboard.tsx'
 
 const POLL_MS = 2000
 
 interface LiveViewProps {
   matchId: string
   displayMode: DisplayMode
+  onChangeMode: (m: DisplayMode) => void
   onBack: () => void
 }
 
-function formatClock(s: number): string {
+function fmtClock(s: number): string {
   const m = Math.floor(s / 60)
   const sec = s % 60
   return `${m}:${String(sec).padStart(2, '0')}`
 }
 
-export default function LiveView({ matchId, displayMode, onBack }: LiveViewProps) {
-  const [state, setState] = useState<LiveState | null>(null)
-  const [_overlays, setOverlays] = useState<OverlayData[]>([])
-  const [activeOverlay, setActiveOverlay] = useState<OverlayData | null>(null)
+export default function LiveView({ matchId, displayMode, onChangeMode, onBack }: LiveViewProps) {
+  const [liveBundle, setLiveBundle] = useState<ReplayBundle | null>(null)
+  const [liveClock, setLiveClock] = useState(0)
+  const [score, setScore] = useState<Record<string, number>>({})
+  const [simulateOutage, setSimulateOutageLocal] = useState(false)
+  const [activeOverlay, setActiveOverlay] = useState<LiveOverlay | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [animKey, setAnimKey] = useState(0)
+  const [connecting, setConnecting] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const sinceRef = useRef(0)
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const sinceClockRef = useRef(0)
+  const metaLoadedRef = useRef(false)
+  const hasSnapshotRef = useRef(false)
 
   const poll = useCallback(async () => {
     try {
       const [nextState, newOvs] = await Promise.all([
         getLiveState(matchId),
-        getLiveOverlays(matchId, sinceRef.current),
+        getLiveOverlays(matchId, sinceClockRef.current),
       ])
-      setState(nextState)
+
+      setLiveClock(nextState.clock_s)
+      setScore(nextState.score)
+      setSimulateOutageLocal(nextState.simulate_outage)
+
+      setLiveBundle(prev => {
+        if (!prev) return prev
+
+        let snapshots = prev.snapshots
+        let frameSnaps = prev.frames.snapshots
+        if (nextState.latest_snapshot) {
+          const snap = nextState.latest_snapshot
+          if (!snapshots.find(s => s.snapshot_id === snap.snapshot_id)) {
+            snapshots = [...snapshots, snap]
+            frameSnaps = {
+              ...frameSnaps,
+              [snap.snapshot_id]: nextState.possession_team_id ?? Object.keys(prev.meta.teams)[0] ?? '',
+            }
+            hasSnapshotRef.current = true
+          }
+        }
+
+        const existingIds = new Set(prev.events.map(e => e.event_id))
+        const newEvts = (nextState.events as unknown as EventData[]).filter(e => !existingIds.has(e.event_id))
+
+        return {
+          ...prev,
+          snapshots,
+          events: newEvts.length ? [...prev.events, ...newEvts] : prev.events,
+          frames: { ...prev.frames, snapshots: frameSnaps },
+        }
+      })
+
       if (newOvs.length > 0) {
-        sinceRef.current = Math.max(...newOvs.map(o => o.match_clock_s))
-        setOverlays(prev => {
-          const existing = new Set(prev.map(o => o.overlay_id))
-          const fresh = newOvs.filter(o => !existing.has(o.overlay_id))
-          const merged = [...prev, ...fresh]
-          if (fresh.length > 0) setActiveOverlay(fresh[fresh.length - 1])
-          return merged
+        sinceClockRef.current = Math.max(sinceClockRef.current, ...newOvs.map(o => o.match_clock_s))
+
+        setLiveBundle(prev => {
+          if (!prev) return prev
+          const existingIds = new Set(prev.overlays.map(o => o.overlay_id))
+          const fresh = newOvs.filter(o => !existingIds.has(o.overlay_id))
+          if (!fresh.length) return prev
+
+          const frameOvs = { ...prev.frames.overlays }
+          const ledgers = { ...(prev.ledgers ?? {}) }
+          for (const ov of fresh) {
+            if (ov.frame_team_id) frameOvs[ov.overlay_id] = ov.frame_team_id
+            if (ov.ledger) ledgers[ov.overlay_id] = ov.ledger
+          }
+
+          return {
+            ...prev,
+            overlays: [...prev.overlays, ...fresh],
+            frames: { ...prev.frames, overlays: frameOvs },
+            ledgers,
+          }
         })
+
+        setActiveOverlay(newOvs[newOvs.length - 1])
+        setAnimKey(k => k + 1)
+      }
+
+      if (metaLoadedRef.current && hasSnapshotRef.current) {
+        setConnecting(false)
       }
     } catch (e) {
       setError(String(e))
@@ -53,20 +115,64 @@ export default function LiveView({ matchId, displayMode, onBack }: LiveViewProps
   }, [matchId])
 
   useEffect(() => {
-    poll()
-    timerRef.current = setInterval(poll, POLL_MS)
-    return () => { if (timerRef.current) clearInterval(timerRef.current) }
-  }, [poll])
+    let interval: ReturnType<typeof setInterval> | null = null
+    let active = true
+
+    getLiveMeta(matchId)
+      .then(meta => {
+        if (!active) return
+        metaLoadedRef.current = true
+        setLiveBundle({
+          meta,
+          events: [],
+          snapshots: [],
+          metrics: { match_stats: [], momentum: [], pressure: [] },
+          headline_moments: [],
+          overlays: [],
+          frames: { snapshots: {}, overlays: {} },
+          ledgers: {},
+        })
+        void poll()
+        interval = setInterval(() => { void poll() }, POLL_MS)
+      })
+      .catch(e => { if (active) setError(String(e)) })
+
+    return () => {
+      active = false
+      if (interval) clearInterval(interval)
+    }
+  }, [matchId, poll])
 
   const toggleOutage = useCallback(async () => {
-    if (!state) return
     try {
-      await setSimulateOutage(matchId, !state.simulate_outage)
+      await setSimulateOutage(matchId, !simulateOutage)
     } catch { /* ignore */ }
-  }, [matchId, state])
+  }, [matchId, simulateOutage])
 
-  const activeLedger: LedgerData | undefined = undefined  // live bundles don't carry ledgers in this view
-  const showDrawer = drawerOpen && !!activeOverlay
+  const homeTeam = liveBundle ? (Object.keys(liveBundle.meta.teams)[0] ?? '') : ''
+  const positions = liveBundle ? positionsAt(liveClock, liveBundle) : []
+  const activeLedger: LedgerData | undefined = activeOverlay && liveBundle?.ledgers
+    ? liveBundle.ledgers[activeOverlay.overlay_id]
+    : undefined
+  const showDrawer = drawerOpen && !!activeOverlay && !!activeLedger
+
+  if (connecting || !liveBundle) {
+    return (
+      <div className="app-root">
+        <header className="app-header">
+          <button className="btn back-btn" onClick={onBack} aria-label="Back to replay list">← Back</button>
+        </header>
+        <main className="app-main">
+          {error
+            ? <p className="picker-status picker-error">{error}</p>
+            : <p className="picker-status">Connecting to Fabric…</p>
+          }
+        </main>
+      </div>
+    )
+  }
+
+  const b = liveBundle
 
   const sidePanel = showDrawer ? (
     <EvidenceDrawer
@@ -77,23 +183,20 @@ export default function LiveView({ matchId, displayMode, onBack }: LiveViewProps
     />
   ) : (
     <div className="moment-panel">
-      {activeOverlay
-        ? (
-          <MomentCard
-            overlay={activeOverlay}
-            bundle={null as never}
-            mode={displayMode}
-            ledger={activeLedger}
-            onDrawerToggle={() => setDrawerOpen(true)}
-          />
-        )
-        : (
-          <div className="live-waiting">
-            <span className="live-pulse-dot" aria-hidden="true" />
-            <p className="live-waiting-text">Waiting for the next moment…</p>
-          </div>
-        )
-      }
+      {activeOverlay ? (
+        <MomentCard
+          overlay={activeOverlay}
+          bundle={b}
+          mode={displayMode}
+          ledger={activeLedger}
+          onDrawerToggle={() => setDrawerOpen(true)}
+        />
+      ) : (
+        <div className="live-waiting">
+          <span className="live-pulse-dot" aria-hidden="true" />
+          <p className="live-waiting-text">Waiting for the next moment…</p>
+        </div>
+      )}
     </div>
   )
 
@@ -102,49 +205,80 @@ export default function LiveView({ matchId, displayMode, onBack }: LiveViewProps
       <header className="app-header">
         <button className="btn back-btn" onClick={onBack} aria-label="Back to replay list">← Back</button>
         <div className="app-header-title">
-          <span className="app-header-name">Live: {matchId}</span>
-          {state && (
-            <span className="app-header-sub live-clock-badge">
-              <span className="live-pulse-dot" aria-hidden="true" />
-              {formatClock(state.clock_s)}
-            </span>
-          )}
+          <span className="app-header-name">{b.meta.title}</span>
+          <span className="app-header-sub live-clock-badge">
+            <span className="live-pulse-dot" aria-hidden="true" />
+            {'Live from Fabric · '}{fmtClock(liveClock)}
+          </span>
+        </div>
+        <div className="mode-switch" role="group" aria-label="Display mode">
+          {(['fan', 'analyst', 'compare'] as DisplayMode[]).map(m => (
+            <button
+              key={m}
+              className={`mode-btn${displayMode === m ? ' active' : ''}`}
+              onClick={() => onChangeMode(m)}
+              aria-pressed={displayMode === m}
+            >
+              {m === 'fan' ? 'Fan' : m === 'analyst' ? 'Analyst' : 'Compare'}
+            </button>
+          ))}
         </div>
         {displayMode === 'analyst' && (
           <button
-            className={`btn mode-btn${state?.simulate_outage ? ' active' : ''}`}
-            onClick={toggleOutage}
+            className={`btn mode-btn${simulateOutage ? ' active' : ''}`}
+            onClick={() => { void toggleOutage() }}
             title="Simulate model outage — next overlay uses template fallback"
           >
             Sim outage
           </button>
         )}
+        {error && <span className="live-error-badge" title={error}>⚠ poll error</span>}
       </header>
       <main className="app-main">
-        {error && <p className="picker-status picker-error">{error}</p>}
-        {state && (
-          <div className="live-scoreline">
-            {Object.entries(state.score).map(([tid, g]) => (
-              <span key={tid} className="live-score-chip">{tid}: {g}</span>
-            ))}
-          </div>
-        )}
+        <Scoreboard bundle={b} score={score} clockS={liveClock} />
         <div className="replay-body">
           <div className="pitch-col">
             <div className="pitch-wrap">
               <Pitch
-                positions={[]}
+                positions={positions}
                 ball={null}
-                bundle={null as never}
+                bundle={b}
                 activeOverlay={activeOverlay}
-                homeTeam=""
-                animKey={0}
+                homeTeam={homeTeam}
+                animKey={animKey}
               />
             </div>
             {activeOverlay && <PitchLegend />}
           </div>
           {sidePanel}
         </div>
+        {displayMode === 'compare' && activeOverlay && (
+          <div className="compare-row">
+            <div className="compare-col">
+              <p className="compare-col-label">Fan</p>
+              <MomentCard
+                overlay={activeOverlay}
+                bundle={b}
+                mode="fan"
+                ledger={activeLedger}
+                onDrawerToggle={() => setDrawerOpen(true)}
+                textOnly
+              />
+            </div>
+            <div className="compare-divider" aria-hidden="true" />
+            <div className="compare-col">
+              <p className="compare-col-label">Analyst</p>
+              <MomentCard
+                overlay={activeOverlay}
+                bundle={b}
+                mode="analyst"
+                ledger={activeLedger}
+                onDrawerToggle={() => setDrawerOpen(true)}
+                textOnly
+              />
+            </div>
+          </div>
+        )}
       </main>
     </div>
   )
