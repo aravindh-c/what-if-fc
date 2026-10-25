@@ -32,19 +32,19 @@ export default function EvidenceDrawer({ ledger, overlay, onClose, onSeek }: Evi
   const errors = ledger.run.errors_attempt1 ?? []
 
   return (
-    <div className="evidence-drawer" role="dialog" aria-modal="true" aria-label="Why do we say this?">
-      <div className="evidence-drawer-header">
-        <h2 className="evidence-drawer-title">Why do we say this?</h2>
+    <div className="evidence-panel moment-panel" role="dialog" aria-modal="true" aria-label="Why do we say this?">
+      <div className="evidence-panel-header">
+        <span className="evidence-panel-title">Why do we say this?</span>
         <button
           className="btn evidence-drawer-close"
           onClick={onClose}
-          aria-label="Close evidence drawer"
+          aria-label="Close evidence panel"
         >
           ✕
         </button>
       </div>
 
-      <div className="evidence-drawer-body">
+      <div className="evidence-panel-body">
 
         {/* Cited events */}
         {ledger.events.length > 0 && (

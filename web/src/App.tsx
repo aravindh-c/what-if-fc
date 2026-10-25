@@ -174,7 +174,6 @@ export default function App() {
   const changeMode = useCallback((m: DisplayMode) => {
     try { localStorage.setItem('whatiffc_mode', m) } catch { /* ignore */ }
     setDisplayMode(m)
-    if (m === 'analyst') setDrawerOpen(true)
   }, [])
 
   const { clockS, playing, speed, activeOverlay, toggle, play, setSpeed, seek, showMoment } = usePlayback(bundle)
@@ -210,6 +209,27 @@ export default function App() {
     setBundle(null)
     setBundleError(null)
   }, [])
+
+  // Derived navigation state — computed before early returns so hooks below are unconditional
+  const currentIdx = activeOverlay && bundle
+    ? bundle.overlays.findIndex(o => o.overlay_id === activeOverlay.overlay_id)
+    : -1
+
+  // All useCallback hooks must be declared before any early return (Rules of Hooks)
+  const goToPrev = useCallback(() => {
+    if (!bundle || currentIdx <= 0) return
+    showMoment(bundle.overlays[currentIdx - 1])
+  }, [bundle, currentIdx, showMoment])
+
+  const goToNext = useCallback(() => {
+    if (!bundle || currentIdx < 0 || currentIdx >= bundle.overlays.length - 1) return
+    showMoment(bundle.overlays[currentIdx + 1])
+  }, [bundle, currentIdx, showMoment])
+
+  const restartReplay = useCallback(() => {
+    if (!bundle || bundle.overlays.length === 0) return
+    showMoment(bundle.overlays[0])
+  }, [bundle, showMoment])
 
   // Picker view
   if (!bundle && !bundleError) {
@@ -264,23 +284,66 @@ export default function App() {
   const headerSub   = isScenario ? (b.meta.scenario_description ?? null) : seedSubtitle(b.meta.replay_id)
 
   const activeLedger = activeOverlay && b.ledgers ? b.ledgers[activeOverlay.overlay_id] : undefined
-  const showDrawer = drawerOpen && activeOverlay && activeLedger
+  const showDrawer = drawerOpen && !!activeOverlay && !!activeLedger
 
-  const currentIdx = activeOverlay
-    ? b.overlays.findIndex(o => o.overlay_id === activeOverlay.overlay_id)
-    : -1
+  // In Compare mode the side panel shows scores; a separate full-width row shows texts
+  const isCompare = displayMode === 'compare'
 
-  const goToPrev = useCallback(() => {
-    if (currentIdx > 0) showMoment(b.overlays[currentIdx - 1])
-  }, [currentIdx, b.overlays, showMoment])
-
-  const goToNext = useCallback(() => {
-    if (currentIdx >= 0 && currentIdx < b.overlays.length - 1) showMoment(b.overlays[currentIdx + 1])
-  }, [currentIdx, b.overlays, showMoment])
-
-  const restartReplay = useCallback(() => {
-    if (b.overlays.length > 0) showMoment(b.overlays[0])
-  }, [b.overlays, showMoment])
+  const sidePanel = showDrawer ? (
+    <EvidenceDrawer
+      ledger={activeLedger!}
+      overlay={activeOverlay!}
+      onClose={() => setDrawerOpen(false)}
+      onSeek={t => { seek(t); setDrawerOpen(false) }}
+    />
+  ) : (
+    <div className="moment-panel">
+      {b.overlays.length > 1 && (
+        <div className="moment-nav" aria-label="Moment navigation">
+          <button
+            className="btn moment-nav-btn"
+            onClick={restartReplay}
+            aria-label="Restart from first moment"
+            title="Restart"
+          >⟨⟨</button>
+          <button
+            className="btn moment-nav-btn"
+            onClick={goToPrev}
+            disabled={currentIdx <= 0}
+            aria-label="Previous moment"
+          >‹ Prev</button>
+          <span className="moment-nav-count" aria-live="polite">
+            {currentIdx >= 0 ? `${currentIdx + 1} / ${b.overlays.length}` : `— / ${b.overlays.length}`}
+          </span>
+          <button
+            className="btn moment-nav-btn"
+            onClick={goToNext}
+            disabled={currentIdx < 0 || currentIdx >= b.overlays.length - 1}
+            aria-label="Next moment"
+          >Next ›</button>
+        </div>
+      )}
+      {activeOverlay
+        ? <MomentCard
+            overlay={activeOverlay}
+            bundle={b}
+            mode={displayMode}
+            ledger={activeLedger}
+            onDrawerToggle={() => setDrawerOpen(true)}
+          />
+        : <p className="moment-panel-empty">Play the match to see key moments</p>
+      }
+      {isScenario && (
+        <button
+          className="btn btn-ghost-replay"
+          onClick={() => setAnimKey(k => k + 1)}
+          aria-label="Replay the Ghost Pass animation"
+        >
+          Replay the Ghost Pass
+        </button>
+      )}
+    </div>
+  )
 
   return (
     <div className="app-root">
@@ -319,53 +382,35 @@ export default function App() {
             </div>
             {activeOverlay && <PitchLegend />}
           </div>
-          <div className="moment-panel">
-            {b.overlays.length > 1 && (
-              <div className="moment-nav" aria-label="Moment navigation">
-                <button
-                  className="btn moment-nav-btn"
-                  onClick={restartReplay}
-                  aria-label="Restart from first moment"
-                  title="Restart"
-                >⟨⟨</button>
-                <button
-                  className="btn moment-nav-btn"
-                  onClick={goToPrev}
-                  disabled={currentIdx <= 0}
-                  aria-label="Previous moment"
-                >‹ Prev</button>
-                <span className="moment-nav-count" aria-live="polite">
-                  {currentIdx >= 0 ? `${currentIdx + 1} / ${b.overlays.length}` : `— / ${b.overlays.length}`}
-                </span>
-                <button
-                  className="btn moment-nav-btn"
-                  onClick={goToNext}
-                  disabled={currentIdx < 0 || currentIdx >= b.overlays.length - 1}
-                  aria-label="Next moment"
-                >Next ›</button>
-              </div>
-            )}
-            {activeOverlay
-              ? <MomentCard
-                  overlay={activeOverlay}
-                  bundle={b}
-                  mode={displayMode}
-                  ledger={activeLedger}
-                  onDrawerToggle={() => setDrawerOpen(o => !o)}
-                />
-              : <p className="moment-panel-empty">Play the match to see key moments</p>
-            }
-            {isScenario && (
-              <button
-                className="btn btn-ghost-replay"
-                onClick={() => setAnimKey(k => k + 1)}
-                aria-label="Replay the Ghost Pass animation"
-              >
-                Replay the Ghost Pass
-              </button>
-            )}
-          </div>
+          {sidePanel}
         </div>
+        {isCompare && activeOverlay && (
+          <div className="compare-row">
+            <div className="compare-col">
+              <p className="compare-col-label">Fan</p>
+              <MomentCard
+                overlay={activeOverlay}
+                bundle={b}
+                mode="fan"
+                ledger={activeLedger}
+                onDrawerToggle={() => setDrawerOpen(true)}
+                textOnly
+              />
+            </div>
+            <div className="compare-divider" aria-hidden="true" />
+            <div className="compare-col">
+              <p className="compare-col-label">Analyst</p>
+              <MomentCard
+                overlay={activeOverlay}
+                bundle={b}
+                mode="analyst"
+                ledger={activeLedger}
+                onDrawerToggle={() => setDrawerOpen(true)}
+                textOnly
+              />
+            </div>
+          </div>
+        )}
         {!isScenario && (
           <PlaybackControls
             playing={playing}
@@ -384,14 +429,6 @@ export default function App() {
           />
         )}
       </main>
-      {showDrawer && (
-        <EvidenceDrawer
-          ledger={activeLedger}
-          overlay={activeOverlay}
-          onClose={() => setDrawerOpen(false)}
-          onSeek={t => { seek(t); setDrawerOpen(false) }}
-        />
-      )}
     </div>
   )
 }
