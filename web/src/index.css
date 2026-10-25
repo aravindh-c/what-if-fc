@@ -1026,3 +1026,387 @@ body {
 .live-waiting-text {
   font-size: 0.9rem;
 }
+
+/* =========================================================================
+   Logo
+   ========================================================================= */
+
+.app-logo-wrap {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  line-height: 0;
+}
+
+/* =========================================================================
+   Hero
+   ========================================================================= */
+
+.hero {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px 40px;
+  align-items: center;
+  padding: 40px 0 24px;
+  width: 100%;
+  max-width: 800px;
+}
+
+.hero-text {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.hero-headline {
+  font-family: var(--font-display);
+  font-size: 2.6rem;
+  font-weight: 700;
+  line-height: 1.05;
+  color: var(--text);
+  letter-spacing: 0.01em;
+}
+
+.hero-sub {
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  line-height: 1.55;
+  max-width: 360px;
+}
+
+.hero-ctas {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.hero-pitch {
+  aspect-ratio: 105 / 68;
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+
+@media (max-width: 680px) {
+  .hero {
+    grid-template-columns: 1fr;
+    gap: 24px;
+    padding: 24px 0 16px;
+  }
+
+  .hero-headline { font-size: 2rem; }
+}
+
+@media (max-width: 360px) {
+  .hero-headline { font-size: 1.7rem; }
+}
+
+/* =========================================================================
+   PitchThumb
+   ========================================================================= */
+
+.pitch-thumb-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+@keyframes thumb-ghost-reveal {
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .pitch-thumb-ghost-in {
+    opacity: 0;
+    animation: thumb-ghost-reveal 0.9s 0.55s ease-out forwards;
+  }
+}
+
+/* =========================================================================
+   How it works strip
+   ========================================================================= */
+
+.how-it-works {
+  width: 100%;
+  max-width: 800px;
+  padding: 8px 0 32px;
+}
+
+.how-heading {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+  margin-bottom: 16px;
+}
+
+.how-steps {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  list-style: none;
+}
+
+.how-step {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.how-step-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.how-step-n {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--home-color);
+  line-height: 1;
+}
+
+.how-step-icon {
+  flex-shrink: 0;
+}
+
+.how-step-title {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.how-step-text {
+  font-size: 0.84rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+@media (max-width: 520px) {
+  .how-steps {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* =========================================================================
+   Picker card thumbnails
+   ========================================================================= */
+
+.picker-card-thumb {
+  width: 100%;
+  aspect-ratio: 105 / 68;
+  border-radius: 2px;
+  overflow: hidden;
+  background: var(--pitch-dark);
+  margin-bottom: 6px;
+}
+
+.picker-card-desc {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.picker-live-empty {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  padding: 10px 0 4px;
+  line-height: 1.4;
+}
+
+/* =========================================================================
+   Guided tour
+   ========================================================================= */
+
+.tour-click-catcher {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  cursor: pointer;
+}
+
+/* The box-shadow trick: creates a dark vignette around the transparent spotlight */
+.tour-spotlight {
+  position: fixed;
+  z-index: 901;
+  border-radius: 6px;
+  box-shadow: 0 0 0 9999px rgba(10, 18, 28, 0.76);
+  pointer-events: none;
+}
+
+.tour-popover {
+  position: fixed;
+  z-index: 902;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px 12px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tour-popover-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.tour-step-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-family: var(--font-display);
+}
+
+.tour-close-btn {
+  padding: 2px 6px;
+  font-size: 0.78rem;
+  line-height: 1;
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.tour-close-btn:hover, .tour-close-btn:focus-visible {
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.tour-popover-title {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.tour-popover-body {
+  font-size: 0.87rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.tour-dots {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.tour-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--border);
+  transition: background 0.15s;
+}
+
+.tour-dot.active {
+  background: var(--home-color);
+}
+
+.tour-popover-nav {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.tour-back-btn {
+  font-size: 0.8rem;
+  padding: 5px 12px;
+}
+
+.tour-next-btn {
+  font-size: 0.8rem;
+  padding: 5px 14px;
+}
+
+.tour-skip-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  padding: 2px 0;
+  text-align: left;
+  font-family: var(--font-body);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.tour-skip-btn:hover { color: var(--text); }
+
+.tour-launch-btn {
+  margin-left: 6px;
+  font-size: 0.78rem;
+  padding: 4px 10px;
+  flex-shrink: 0;
+}
+
+/* =========================================================================
+   Timeline key
+   ========================================================================= */
+
+.timeline-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  padding-top: 8px;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.timeline-key-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.timeline-key-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 2px solid var(--bg);
+  flex-shrink: 0;
+}
+
+/* =========================================================================
+   Site footer
+   ========================================================================= */
+
+.site-footer {
+  padding: 18px 16px;
+  border-top: 1px solid var(--border);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  text-align: center;
+  margin-top: auto;
+}
+
+.footer-link {
+  color: var(--ghost-ink);
+  text-decoration: none;
+}
+
+.footer-link:hover, .footer-link:focus-visible {
+  text-decoration: underline;
+  outline: 2px solid var(--ghost-ink);
+  outline-offset: 2px;
+}

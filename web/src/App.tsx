@@ -12,6 +12,12 @@ import PitchLegend from './components/PitchLegend.tsx'
 import EvidenceDrawer from './components/EvidenceDrawer.tsx'
 import LiveView from './components/LiveView.tsx'
 import LiveErrorBoundary from './components/LiveErrorBoundary.tsx'
+import Logo from './components/Logo.tsx'
+import Hero from './components/Hero.tsx'
+import HowItWorks from './components/HowItWorks.tsx'
+import Tour from './components/Tour.tsx'
+import type { TourStep } from './components/Tour.tsx'
+import SiteFooter from './components/SiteFooter.tsx'
 
 export type DisplayMode = 'fan' | 'analyst' | 'compare'
 
@@ -174,10 +180,16 @@ export default function App() {
   const [displayMode, setDisplayMode] = useState<DisplayMode>(getStoredMode)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [liveMatchId, setLiveMatchId] = useState<string | null>(null)
+  const [tourActive, setTourActive] = useState(false)
 
   const changeMode = useCallback((m: DisplayMode) => {
     try { localStorage.setItem('whatiffc_mode', m) } catch { /* ignore */ }
     setDisplayMode(m)
+  }, [])
+
+  const closeTour = useCallback(() => {
+    setTourActive(false)
+    try { localStorage.setItem('whatiffc_tour_seen', '1') } catch { /* ignore */ }
   }, [])
 
   const { clockS, playing, speed, activeOverlay, toggle, play, setSpeed, seek, showMoment } = usePlayback(bundle)
@@ -209,6 +221,11 @@ export default function App() {
       if (b.meta.kind === 'scenario' && b.overlays.length > 0) {
         showMoment(b.overlays[0])
       }
+      try {
+        if (!localStorage.getItem('whatiffc_tour_seen')) {
+          setTourActive(true)
+        }
+      } catch { /* ignore */ }
     } catch (e) {
       setBundleError(`Failed to load replay: ${String(e)}`)
     } finally {
@@ -219,6 +236,7 @@ export default function App() {
   const closeBundle = useCallback(() => {
     setBundle(null)
     setBundleError(null)
+    setTourActive(false)
   }, [])
 
   // Derived navigation state — computed before early returns so hooks below are unconditional
@@ -263,22 +281,30 @@ export default function App() {
     return (
       <div className="app-root">
         <header className="app-header">
+          <span className="app-logo-wrap" aria-hidden="true"><Logo /></span>
           <h1 className="app-title">What If FC</h1>
         </header>
         <main className="app-main">
           {bundleLoading
             ? <p className="picker-status">Loading replay…</p>
-            : <ReplayPicker
-                entries={entries}
-                liveMatches={liveMatches}
-                loading={listLoading}
-                error={listError}
-                onSelect={openReplay}
-                onSelectLive={openLive}
-                kindLabel={kindLabel}
-              />
+            : (
+              <>
+                <Hero entries={entries} onSelect={openReplay} loading={listLoading} />
+                <ReplayPicker
+                  entries={entries}
+                  liveMatches={liveMatches}
+                  loading={listLoading}
+                  error={listError}
+                  onSelect={openReplay}
+                  onSelectLive={openLive}
+                  kindLabel={kindLabel}
+                />
+                <HowItWorks />
+              </>
+            )
           }
         </main>
+        <SiteFooter />
       </div>
     )
   }
@@ -289,6 +315,7 @@ export default function App() {
       <div className="app-root">
         <header className="app-header">
           <button className="btn back-btn" onClick={closeBundle} aria-label="Back to replay list">← Back</button>
+          <span className="app-logo-wrap" aria-hidden="true"><Logo /></span>
           <h1 className="app-title">What If FC</h1>
         </header>
         <main className="app-main">
@@ -318,6 +345,32 @@ export default function App() {
   // In Compare mode the side panel shows scores; a separate full-width row shows texts
   const isCompare = displayMode === 'compare'
 
+  const tourSteps: TourStep[] = [
+    {
+      target: 'pitch',
+      title: 'The Ghost Pass',
+      body: 'The solid line is the pass that was played. The glowing dashed line is the better option — the Ghost Pass.',
+    },
+    {
+      target: 'moment-panel',
+      title: 'The story',
+      body: 'What happened, in plain words — written for fans or analysts.',
+    },
+    {
+      target: 'mode-switch',
+      title: 'Choose your view',
+      body: 'Fan for the story, Analyst for the numbers, Compare for both.',
+    },
+    {
+      target: 'why-btn',
+      title: 'The evidence',
+      body: 'Every claim traces back to events, scores and the formula. Open this to see them.',
+    },
+    isScenario
+      ? { target: 'ghost-replay', title: 'Replay the pass', body: 'Watch the Ghost Pass animation again with one click.' }
+      : { target: 'timeline', title: 'Match timeline', body: 'Dots mark key moments. Click to jump there and watch the replay.' },
+  ]
+
   const sidePanel = showDrawer ? (
     <EvidenceDrawer
       ledger={activeLedger!}
@@ -326,7 +379,7 @@ export default function App() {
       onSeek={t => { seek(t); setDrawerOpen(false) }}
     />
   ) : (
-    <div className="moment-panel">
+    <div className="moment-panel" data-tour="moment-panel">
       {b.overlays.length > 1 && (
         <div className="moment-nav" aria-label="Moment navigation">
           <button
@@ -367,6 +420,7 @@ export default function App() {
           className="btn btn-ghost-replay"
           onClick={() => setAnimKey(k => k + 1)}
           aria-label="Replay the Ghost Pass animation"
+          data-tour="ghost-replay"
         >
           Replay the Ghost Pass
         </button>
@@ -378,11 +432,12 @@ export default function App() {
     <div className="app-root">
       <header className="app-header">
         <button className="btn back-btn" onClick={closeBundle} aria-label="Back to replay list">← Back</button>
+        <span className="app-logo-wrap" aria-hidden="true"><Logo size={20} /></span>
         <div className="app-header-title">
           <span className="app-header-name">{headerTitle}</span>
           {headerSub && <span className="app-header-sub">{headerSub}</span>}
         </div>
-        <div className="mode-switch" role="group" aria-label="Display mode">
+        <div className="mode-switch" role="group" aria-label="Display mode" data-tour="mode-switch">
           {(['fan', 'analyst', 'compare'] as DisplayMode[]).map(m => (
             <button
               key={m}
@@ -394,12 +449,19 @@ export default function App() {
             </button>
           ))}
         </div>
+        <button
+          className="btn tour-launch-btn"
+          onClick={() => setTourActive(true)}
+          aria-label="Take the guided tour"
+        >
+          Tour
+        </button>
       </header>
       <main className="app-main">
         {!isScenario && <Scoreboard bundle={b} score={score} clockS={clockS} />}
         <div className="replay-body">
           <div className="pitch-col">
-            <div className="pitch-wrap">
+            <div className="pitch-wrap" data-tour="pitch">
               <Pitch
                 positions={positions}
                 ball={ball}
@@ -458,6 +520,7 @@ export default function App() {
           />
         )}
       </main>
+      {tourActive && <Tour steps={tourSteps} onClose={closeTour} />}
     </div>
   )
 }
