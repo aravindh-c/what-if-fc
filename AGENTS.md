@@ -12,7 +12,7 @@ What If FC (working title) is a solo entry for the Microsoft Premier League Hack
 2. **Numbers come from code, never from the LLM.** Coordinates, scores and metrics come from the Tactical Twin (`analytics/`) or KQL. Agents only interpret an evidence packet.
 3. **Every overlay is validated** against `core.schemas.Overlay` and the evidence packet before it reaches the UI. On failure: retry once, then use the template fallback, and set `narrative_source="template"`.
 4. **Label heuristics honestly.** Tactical Twin values are "tactical option scores", not probabilities. Never call them xG, xA or xT.
-5. **No secrets in the repo.** Read config from environment variables (see `.env.example`). Never print keys in logs.
+5. **No secrets in the repo.** Read config from environment variables (see `.env.example`). Never print keys in logs. Never create, overwrite or edit `.env` — it is git-ignored and lives only on the developer's machine. Only edit `.env.example` (which holds blank or safe default values).
 6. **Deterministic by seed.** Anything random takes a seed or an injected `random.Random`; the same seed must reproduce the same events, snapshots, scores and overlays.
 7. **Fabric costs money per running hour.** Prefer designs that let the UI work from replay files with Fabric paused.
 
