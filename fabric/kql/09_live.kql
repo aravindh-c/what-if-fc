@@ -9,12 +9,12 @@
 //
 // Example: LiveMatches()
 .create-or-alter function with (folder="whatif") LiveMatches() {
-    EventsClean()
-    | where EventEnqueuedUtcTime >= ago(30m)
+    events
+    | where ingestion_time() >= ago(30m)
     | summarize
-        event_count   = count(),
+        event_count   = dcount(event_id),
         last_clock_s  = max(match_clock_s),
-        last_ingested = max(EventEnqueuedUtcTime)
+        last_ingested = max(ingestion_time())
       by match_id
     | project match_id, event_count, last_clock_s, last_ingested
 }
