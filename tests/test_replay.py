@@ -103,6 +103,49 @@ def test_overlays_have_deterministic_ids(missed_overlap_bundle: dict[str, Any]) 
         )
 
 
+def test_bundle_has_ledgers(missed_overlap_bundle: dict[str, Any]) -> None:
+    """Every overlay must have a corresponding ledger with required fields."""
+    assert "ledgers" in missed_overlap_bundle, "bundle missing 'ledgers' key"
+    ledgers = missed_overlap_bundle["ledgers"]
+    required_keys = {"packet", "events", "candidates", "formula", "run"}
+    for overlay in missed_overlap_bundle.get("overlays", []):
+        ov_id = overlay["overlay_id"]
+        assert ov_id in ledgers, f"overlay {ov_id!r} has no ledger"
+        ledger = ledgers[ov_id]
+        for key in required_keys:
+            assert key in ledger, f"ledger for {ov_id!r} missing field {key!r}"
+        formula = ledger["formula"]
+        for fkey in ("version", "weights", "ghost_rule"):
+            assert fkey in formula, f"ledger formula for {ov_id!r} missing {fkey!r}"
+        run = ledger["run"]
+        for rkey in ("source", "attempts"):
+            assert rkey in run, f"ledger run for {ov_id!r} missing {rkey!r}"
+
+
+def test_ledger_candidate_scores_match_overlay(missed_overlap_bundle: dict[str, Any]) -> None:
+    """The actual and ghost candidate S values must match the overlay scores."""
+    ledgers = missed_overlap_bundle.get("ledgers", {})
+    for overlay in missed_overlap_bundle.get("overlays", []):
+        ov_id = overlay["overlay_id"]
+        scores = overlay.get("scores")
+        if scores is None:
+            continue
+        ledger = ledgers.get(ov_id)
+        if ledger is None:
+            continue
+        candidates = ledger["candidates"]
+        actual_cands = [c for c in candidates if c.get("is_actual")]
+        ghost_cands = [c for c in candidates if not c.get("is_actual")]
+        if actual_cands:
+            assert abs(actual_cands[0]["S"] - scores["actual"]) < 0.001, (
+                f"{ov_id}: ledger actual S {actual_cands[0]['S']} != overlay actual {scores['actual']}"
+            )
+        if ghost_cands:
+            assert abs(ghost_cands[0]["S"] - scores["ghost"]) < 0.001, (
+                f"{ov_id}: ledger ghost S {ghost_cands[0]['S']} != overlay ghost {scores['ghost']}"
+            )
+
+
 # ---------------------------------------------------------------------------
 # LocalReplayStore tests
 # ---------------------------------------------------------------------------
