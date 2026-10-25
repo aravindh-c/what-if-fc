@@ -151,12 +151,12 @@ def get_overlays(
 
 def _make_kql() -> Any:
     """Build a FabricKql from environment variables, or raise if not configured."""
-    cluster_uri = os.environ.get("KUSTO_CLUSTER_URI", "").strip()
-    database = os.environ.get("KUSTO_DATABASE", "").strip()
+    cluster_uri = os.environ.get("KQL_CLUSTER_URI", "").strip()
+    database = os.environ.get("KQL_DATABASE", "").strip()
     if not cluster_uri or not database:
         raise HTTPException(
             status_code=503,
-            detail="Live mode not configured: set KUSTO_CLUSTER_URI and KUSTO_DATABASE",
+            detail="Live mode not configured: set KQL_CLUSTER_URI and KQL_DATABASE",
         )
     from agents.kql_tools import FabricKql
 
@@ -189,23 +189,51 @@ def watch_match(match_id: str) -> dict[str, str]:
 
 @app.get("/api/live/{match_id}/state")
 def live_state(match_id: str, since_clock_s: int = 0) -> dict[str, Any]:
-    """Current live state: clock, score, latest snapshot, live metrics."""
+    """Current live state: clock, score, latest snapshot, events since since_clock_s."""
     from api.live import get_state
 
     state = get_state(match_id)
     if state is None:
         raise HTTPException(status_code=404, detail=f"match {match_id!r} not watched")
 
-    kql = _make_kql()
-    snapshot_row = kql.latest_snapshot(match_id)
+    # Latest snapshot from watcher's cache; possession team from referencing event
+    latest_snapshot: dict[str, Any] | None = None
+    possession_team_id: str | None = None
+    if state.snap_cache:
+        best = max(state.snap_cache.values(), key=lambda s: s.match_clock_s)
+        latest_snapshot = {
+            "snapshot_id": best.snapshot_id,
+            "match_id": best.match_id,
+            "match_clock_s": best.match_clock_s,
+        }
+        for ev in reversed(state.events):
+            if ev.snapshot_id == best.snapshot_id and ev.team_id:
+                possession_team_id = ev.team_id
+                break
+
+    # Events accumulated since since_clock_s
+    events_out = [
+        {
+            "event_id": e.event_id,
+            "match_clock_s": e.match_clock_s,
+            "event_type": e.event_type.value,
+            "team_id": e.team_id,
+            "player_id": e.player_id,
+        }
+        for e in state.events
+        if e.match_clock_s > since_clock_s
+    ]
 
     return {
         "match_id": match_id,
         "clock_s": state.clock_s,
         "score": state.score,
-        "latest_snapshot": snapshot_row,
-        "simulate_outage": state.simulate_outage,
+        "latest_snapshot": latest_snapshot,
+        "possession_team_id": possession_team_id,
+        "events": events_out,
+        "skipped_rows": state.skipped_rows,
         "overlay_count": len(state.overlays),
+        "simulate_outage": state.simulate_outage,
     }
 
 
