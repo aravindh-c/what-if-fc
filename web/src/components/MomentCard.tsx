@@ -82,8 +82,8 @@ function ScoreTable({ overlay, ledger }: { overlay: OverlayData; ledger?: Ledger
       </table>
       {(actual || ghost) && (
         <div className="analyst-defenders">
-          {actual && <span>Actual pass — nearest defender: {actual.nearest_defender_m} m</span>}
-          {ghost && <span>Better option — nearest defender: {ghost.nearest_defender_m} m</span>}
+          {actual && <span>Actual pass — nearest defender: {(actual.nearest_defender_m).toFixed(1)} m</span>}
+          {ghost && <span>Better option — nearest defender: {(ghost.nearest_defender_m).toFixed(1)} m</span>}
         </div>
       )}
       <p className="moment-score-explainer">

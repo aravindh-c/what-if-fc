@@ -95,7 +95,7 @@ export default function EvidenceDrawer({ ledger, overlay, onClose, onSeek }: Evi
                     <td>{fmt3(c.F)}</td>
                     <td>{fmt3(c.R)}</td>
                     <td className="candidate-total">{fmt3(c.S)}</td>
-                    <td>{c.nearest_defender_m}</td>
+                    <td>{(c.nearest_defender_m).toFixed(1)}</td>
                   </tr>
                 ))}
               </tbody>
