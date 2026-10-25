@@ -137,12 +137,16 @@ def test_ledger_candidate_scores_match_overlay(missed_overlap_bundle: dict[str, 
         actual_cands = [c for c in candidates if c.get("is_actual")]
         ghost_cands = [c for c in candidates if not c.get("is_actual")]
         if actual_cands:
-            assert abs(actual_cands[0]["S"] - scores["actual"]) < 0.001, (
-                f"{ov_id}: ledger actual S {actual_cands[0]['S']} != overlay actual {scores['actual']}"
+            ledger_s = actual_cands[0]["S"]
+            overlay_s = scores["actual"]
+            assert abs(ledger_s - overlay_s) < 0.001, (
+                f"{ov_id}: ledger actual S {ledger_s} != overlay actual {overlay_s}"
             )
         if ghost_cands:
-            assert abs(ghost_cands[0]["S"] - scores["ghost"]) < 0.001, (
-                f"{ov_id}: ledger ghost S {ghost_cands[0]['S']} != overlay ghost {scores['ghost']}"
+            ledger_s = ghost_cands[0]["S"]
+            overlay_s = scores["ghost"]
+            assert abs(ledger_s - overlay_s) < 0.001, (
+                f"{ov_id}: ledger ghost S {ledger_s} != overlay ghost {overlay_s}"
             )
 
 
