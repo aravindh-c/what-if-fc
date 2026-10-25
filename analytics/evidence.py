@@ -62,7 +62,12 @@ class EvidencePacket(BaseModel):
     ball_lost_by: str | None = None          # for turnover: player who lost the ball
 
 
-_LABEL = "heuristic tactical option score, not a probability"
+_LABEL = (
+    "Tactical option score, roughly 0 to 1 "
+    "(very risky passes can go below 0): "
+    "how threatening, forward, open and safe a pass was. "
+    "Higher is better. Not a probability."
+)
 
 
 # ---------------------------------------------------------------------------

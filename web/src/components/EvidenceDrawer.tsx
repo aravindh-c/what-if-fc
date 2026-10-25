@@ -107,7 +107,7 @@ export default function EvidenceDrawer({ ledger, overlay, onClose, onSeek }: Evi
         {/* Formula */}
         <section className="evidence-section">
           <h3 className="evidence-section-title">Scoring formula</h3>
-          <p className="evidence-formula-note">Heuristic tactical option score, not a probability.</p>
+          <p className="evidence-formula-note">Tactical option score, roughly 0 to 1 (very risky passes can go below 0). Not a probability.</p>
           <dl className="evidence-formula-dl">
             <dt>Version</dt><dd>{ledger.formula.version}</dd>
             <dt>Weights</dt>

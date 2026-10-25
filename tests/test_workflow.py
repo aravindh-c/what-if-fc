@@ -61,7 +61,7 @@ def _build_packet() -> EvidencePacket:
         pass_difficulty=28.5,
         ghost_shown=True,
         formula_version="twin-v1",
-        label="heuristic tactical option score, not a probability",
+        label="Tactical option score, roughly 0 to 1 (very risky passes can go below 0): how threatening, forward, open and safe a pass was. Higher is better. Not a probability.",
         passer_id="T01-P07",
         actual_receiver_id="T01-P10",
         highlight_defenders=["T02-P03"],

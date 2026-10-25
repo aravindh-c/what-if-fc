@@ -87,7 +87,7 @@ function ScoreTable({ overlay, ledger }: { overlay: OverlayData; ledger?: Ledger
         </div>
       )}
       <p className="moment-score-explainer">
-        Tactical option score, 0 to 1: how threatening, forward, open and safe a pass was. Higher is better. Not a probability.
+        Tactical option score, roughly 0 to 1 (very risky passes can go below 0): how threatening, forward, open and safe a pass was. Higher is better. Not a probability.
       </p>
     </div>
   )
@@ -105,7 +105,7 @@ function FanScores({ overlay }: { overlay: OverlayData }) {
         <span className="moment-score-value ghost">{fmt(scores.ghost)}</span>
       </div>
       <p className="moment-score-explainer">
-        Tactical option score, 0 to 1: how threatening, forward, open and safe a pass was. Higher is better. Not a probability.
+        Tactical option score, roughly 0 to 1 (very risky passes can go below 0): how threatening, forward, open and safe a pass was. Higher is better. Not a probability.
       </p>
     </>
   )
