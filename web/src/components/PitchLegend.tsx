@@ -13,13 +13,13 @@ export default function PitchLegend() {
       <div className="legend-item">
         <svg width="36" height="14" viewBox="0 0 36 14" aria-hidden="true">
           <defs>
-            <filter id="lglow">
-              <feGaussianBlur stdDeviation="0.7" result="b" />
-              <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+            <filter id="lglow" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="1.8" result="b" />
+              <feMerge><feMergeNode in="b" /><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
             </filter>
           </defs>
           <rect width="36" height="14" rx="2" fill={STRIP} />
-          <line x1="4" y1="7" x2="32" y2="7" stroke="#BFE8FF" strokeWidth="1.5"
+          <line x1="4" y1="7" x2="32" y2="7" stroke="#7DD9FF" strokeWidth="2"
             strokeDasharray="4 2.5" strokeLinecap="round" filter="url(#lglow)" />
         </svg>
         <span>Ghost pass (better option)</span>
