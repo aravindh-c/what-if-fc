@@ -1,10 +1,15 @@
 """FastAPI replay API for What If FC.
 
 Endpoints:
-  GET /health
-  GET /api/replays
-  GET /api/replays/{replay_id}
-  GET /api/replays/{replay_id}/overlays?since_clock_s=N
+  GET  /health
+  GET  /api/replays
+  GET  /api/replays/{replay_id}
+  GET  /api/replays/{replay_id}/overlays?since_clock_s=N
+  GET  /api/live/matches
+  POST /api/live/{match_id}/watch
+  GET  /api/live/{match_id}/state?since_clock_s=N
+  GET  /api/live/{match_id}/overlays?since_clock_s=N
+  POST /api/live/{match_id}/simulate-outage
 
 Run with:
   uvicorn api.main:app --reload
@@ -39,7 +44,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],
     allow_credentials=False,
-    allow_methods=["GET"],
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
@@ -137,3 +142,93 @@ def get_overlays(
         raise HTTPException(status_code=404, detail=f"replay {replay_id!r} not found")
     overlays: list[dict[str, Any]] = bundle.get("overlays", [])
     return [ov for ov in overlays if ov.get("match_clock_s", 0) > since_clock_s]
+
+
+# ---------------------------------------------------------------------------
+# Live endpoints
+# ---------------------------------------------------------------------------
+
+
+def _make_kql() -> Any:
+    """Build a FabricKql from environment variables, or raise if not configured."""
+    cluster_uri = os.environ.get("KUSTO_CLUSTER_URI", "").strip()
+    database = os.environ.get("KUSTO_DATABASE", "").strip()
+    if not cluster_uri or not database:
+        raise HTTPException(
+            status_code=503,
+            detail="Live mode not configured: set KUSTO_CLUSTER_URI and KUSTO_DATABASE",
+        )
+    from agents.kql_tools import FabricKql
+
+    return FabricKql(cluster_uri, database)
+
+
+@app.get("/api/live/matches")
+def live_matches() -> list[dict[str, Any]]:
+    """Return matches that received Fabric events in the last 30 minutes."""
+    kql = _make_kql()
+    return kql.live_matches()
+
+
+@app.post("/api/live/{match_id}/watch", status_code=202)
+def watch_match(match_id: str) -> dict[str, str]:
+    """Start the background watcher for *match_id*."""
+    from agents.kql_tools import _validate_match_id  # noqa: PLC2701
+
+    try:
+        _validate_match_id(match_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    kql = _make_kql()
+    from api.live import start_watcher
+
+    start_watcher(match_id, kql)
+    return {"status": "watching", "match_id": match_id}
+
+
+@app.get("/api/live/{match_id}/state")
+def live_state(match_id: str, since_clock_s: int = 0) -> dict[str, Any]:
+    """Current live state: clock, score, latest snapshot, live metrics."""
+    from api.live import get_state
+
+    state = get_state(match_id)
+    if state is None:
+        raise HTTPException(status_code=404, detail=f"match {match_id!r} not watched")
+
+    kql = _make_kql()
+    snapshot_row = kql.latest_snapshot(match_id)
+
+    return {
+        "match_id": match_id,
+        "clock_s": state.clock_s,
+        "score": state.score,
+        "latest_snapshot": snapshot_row,
+        "simulate_outage": state.simulate_outage,
+        "overlay_count": len(state.overlays),
+    }
+
+
+@app.get("/api/live/{match_id}/overlays")
+def live_overlays(match_id: str, since_clock_s: int = 0) -> list[dict[str, Any]]:
+    """Return live overlays with match_clock_s > since_clock_s."""
+    from api.live import get_overlays, get_state
+
+    if get_state(match_id) is None:
+        raise HTTPException(status_code=404, detail=f"match {match_id!r} not watched")
+    return get_overlays(match_id, since_clock_s)
+
+
+@app.post("/api/live/{match_id}/simulate-outage", status_code=200)
+def simulate_outage(match_id: str, enabled: bool = True) -> dict[str, Any]:
+    """Toggle the simulate-outage flag for *match_id*.
+
+    When enabled the next overlay uses the template fallback path instead of
+    calling the agents, mimicking a model service interruption.
+    """
+    from api.live import get_state, set_simulate_outage
+
+    if get_state(match_id) is None:
+        raise HTTPException(status_code=404, detail=f"match {match_id!r} not watched")
+    set_simulate_outage(match_id, enabled)
+    return {"match_id": match_id, "simulate_outage": enabled}
