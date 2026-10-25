@@ -11,11 +11,22 @@ interface HeroProps {
 
 export default function Hero({ entries, onSelect, loading }: HeroProps) {
   const [heroBundle, setHeroBundle] = useState<ReplayBundle | null>(null)
+  const [heroError, setHeroError] = useState(false)
   const [animKey, setAnimKey] = useState(0)
 
+  const scenarioEntry = entries.find(e => e.replay_id === 'scenario_forced_pass_into_traffic')
+    ?? entries.find(e => e.kind === 'scenario')
+    ?? null
+  const matchEntry = entries.find(e => e.kind === 'match') ?? null
+  const scenarioId = scenarioEntry?.replay_id
+
   useEffect(() => {
-    loadReplay('forced_pass_into_traffic').then(b => setHeroBundle(b)).catch(() => {})
-  }, [])
+    if (!scenarioId) return
+    setHeroError(false)
+    loadReplay(scenarioId)
+      .then(b => setHeroBundle(b))
+      .catch(() => setHeroError(true))
+  }, [scenarioId])
 
   useEffect(() => {
     if (!heroBundle) return
@@ -24,7 +35,6 @@ export default function Hero({ entries, onSelect, loading }: HeroProps) {
   }, [heroBundle])
 
   const visual = heroBundle?.overlays[0]?.visual ?? null
-  const matchEntry = entries.find(e => e.kind === 'match')
 
   return (
     <section className="hero" aria-labelledby="hero-headline">
@@ -37,8 +47,8 @@ export default function Hero({ entries, onSelect, loading }: HeroProps) {
         <div className="hero-ctas">
           <button
             className="btn btn-primary"
-            onClick={() => onSelect('forced_pass_into_traffic')}
-            disabled={loading}
+            onClick={() => scenarioEntry && onSelect(scenarioEntry.replay_id)}
+            disabled={loading || !scenarioEntry}
           >
             See the Ghost Pass
           </button>
@@ -54,7 +64,10 @@ export default function Hero({ entries, onSelect, loading }: HeroProps) {
         </div>
       </div>
       <div className="hero-pitch" aria-hidden="true">
-        <PitchThumb visual={visual} animKey={animKey} animate />
+        <PitchThumb visual={visual} animKey={animKey} animate={!!visual} />
+        {heroError && (
+          <p className="hero-pitch-msg">Preview unavailable — click to load the scenario.</p>
+        )}
       </div>
     </section>
   )
