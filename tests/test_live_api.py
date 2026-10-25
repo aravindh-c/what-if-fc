@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-import asyncio
 from unittest.mock import MagicMock, patch
 
-import pytest
 from fastapi.testclient import TestClient
 
 from api.main import app
@@ -25,10 +23,22 @@ def _fake_meta(match_id: str) -> dict:
         "kind": "match",
         "title": "Home FC vs Away FC",
         "teams": {
-            "T01": {"name": "Home FC", "short_name": "HOM", "formation": "4-3-3", "style": "possession"},
-            "T02": {"name": "Away FC", "short_name": "AWY", "formation": "4-4-2", "style": "counter"},
+            "T01": {
+                "name": "Home FC", "short_name": "HOM",
+                "formation": "4-3-3", "style": "possession",
+            },
+            "T02": {
+                "name": "Away FC", "short_name": "AWY",
+                "formation": "4-4-2", "style": "counter",
+            },
         },
-        "players": {f"T01-P{i:02d}": {"name": f"P{i}", "role": "midfielder", "team_id": "T01", "shirt_number": i} for i in range(1, 23)},
+        "players": {
+            f"T01-P{i:02d}": {
+                "name": f"P{i}", "role": "midfielder",
+                "team_id": "T01", "shirt_number": i,
+            }
+            for i in range(1, 23)
+        },
         "built_at": "2026-01-01T00:00:00Z",
         "twin_version": "twin-v1",
     }
