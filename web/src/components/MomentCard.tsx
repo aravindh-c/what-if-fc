@@ -120,7 +120,7 @@ function GoalScorer({ overlay, bundle }: { overlay: OverlayData; bundle: ReplayB
 
 function WhyButton({ onToggle }: { onToggle: () => void }) {
   return (
-    <button className="btn btn-why" onClick={onToggle}>
+    <button className="btn btn-why" onClick={onToggle} data-tour="why-btn">
       Why do we say this?
     </button>
   )
