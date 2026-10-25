@@ -3,8 +3,8 @@
 # Abort the push on any failure.
 set -e
 
-echo "==> ruff check ."
-ruff check .
+echo "==> python -m ruff check ."
+python -m ruff check .
 
 echo "==> python -m pytest -q"
 python -m pytest -q
