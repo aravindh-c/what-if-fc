@@ -232,7 +232,9 @@ export default function App() {
   }, [bundle, currentIdx, showMoment])
 
   const goToNext = useCallback(() => {
-    if (!bundle || currentIdx < 0 || currentIdx >= bundle.overlays.length - 1) return
+    if (!bundle || bundle.overlays.length === 0) return
+    if (currentIdx < 0) { showMoment(bundle.overlays[0]); return }
+    if (currentIdx >= bundle.overlays.length - 1) return
     showMoment(bundle.overlays[currentIdx + 1])
   }, [bundle, currentIdx, showMoment])
 
@@ -341,7 +343,7 @@ export default function App() {
           <button
             className="btn moment-nav-btn"
             onClick={goToNext}
-            disabled={currentIdx < 0 || currentIdx >= b.overlays.length - 1}
+            disabled={currentIdx >= b.overlays.length - 1}
             aria-label="Next moment"
           >Next ›</button>
         </div>

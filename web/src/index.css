@@ -866,7 +866,13 @@ body {
 }
 
 /* Candidates table */
+.evidence-candidates-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 .evidence-candidates-table {
+  min-width: 340px;
   width: 100%;
   border-collapse: collapse;
   font-size: 0.78rem;

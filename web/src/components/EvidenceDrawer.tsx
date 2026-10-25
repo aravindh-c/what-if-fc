@@ -73,6 +73,7 @@ export default function EvidenceDrawer({ ledger, overlay, onClose, onSeek }: Evi
         {ledger.candidates.length > 0 && overlay.moment_type === 'ghost_pass' && (
           <section className="evidence-section">
             <h3 className="evidence-section-title">All scored options</h3>
+            <div className="evidence-candidates-wrap">
             <table className="evidence-candidates-table" aria-label="All pass options scored">
               <thead>
                 <tr>
@@ -82,7 +83,7 @@ export default function EvidenceDrawer({ ledger, overlay, onClose, onSeek }: Evi
                   <th>F</th>
                   <th>R</th>
                   <th>Total</th>
-                  <th>Def (m)</th>
+                  <th>Def&nbsp;m</th>
                 </tr>
               </thead>
               <tbody>
@@ -99,6 +100,7 @@ export default function EvidenceDrawer({ ledger, overlay, onClose, onSeek }: Evi
                 ))}
               </tbody>
             </table>
+            </div>
           </section>
         )}
 
