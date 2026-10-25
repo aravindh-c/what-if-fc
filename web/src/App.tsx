@@ -266,6 +266,22 @@ export default function App() {
   const activeLedger = activeOverlay && b.ledgers ? b.ledgers[activeOverlay.overlay_id] : undefined
   const showDrawer = drawerOpen && activeOverlay && activeLedger
 
+  const currentIdx = activeOverlay
+    ? b.overlays.findIndex(o => o.overlay_id === activeOverlay.overlay_id)
+    : -1
+
+  const goToPrev = useCallback(() => {
+    if (currentIdx > 0) showMoment(b.overlays[currentIdx - 1])
+  }, [currentIdx, b.overlays, showMoment])
+
+  const goToNext = useCallback(() => {
+    if (currentIdx >= 0 && currentIdx < b.overlays.length - 1) showMoment(b.overlays[currentIdx + 1])
+  }, [currentIdx, b.overlays, showMoment])
+
+  const restartReplay = useCallback(() => {
+    if (b.overlays.length > 0) showMoment(b.overlays[0])
+  }, [b.overlays, showMoment])
+
   return (
     <div className="app-root">
       <header className="app-header">
@@ -304,6 +320,31 @@ export default function App() {
             {activeOverlay && <PitchLegend />}
           </div>
           <div className="moment-panel">
+            {b.overlays.length > 1 && (
+              <div className="moment-nav" aria-label="Moment navigation">
+                <button
+                  className="btn moment-nav-btn"
+                  onClick={restartReplay}
+                  aria-label="Restart from first moment"
+                  title="Restart"
+                >⟨⟨</button>
+                <button
+                  className="btn moment-nav-btn"
+                  onClick={goToPrev}
+                  disabled={currentIdx <= 0}
+                  aria-label="Previous moment"
+                >‹ Prev</button>
+                <span className="moment-nav-count" aria-live="polite">
+                  {currentIdx >= 0 ? `${currentIdx + 1} / ${b.overlays.length}` : `— / ${b.overlays.length}`}
+                </span>
+                <button
+                  className="btn moment-nav-btn"
+                  onClick={goToNext}
+                  disabled={currentIdx < 0 || currentIdx >= b.overlays.length - 1}
+                  aria-label="Next moment"
+                >Next ›</button>
+              </div>
+            )}
             {activeOverlay
               ? <MomentCard
                   overlay={activeOverlay}
