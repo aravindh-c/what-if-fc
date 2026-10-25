@@ -713,3 +713,207 @@ body {
   align-self: stretch;
   margin: 0 8px;
 }
+
+.compare-why {
+  grid-column: 1 / -1;
+}
+
+/* Why button */
+.btn-why {
+  margin-top: 8px;
+  width: 100%;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  border-color: var(--border);
+  background: transparent;
+}
+
+.btn-why:hover, .btn-why:focus-visible {
+  color: var(--text);
+  border-color: var(--home-color);
+  outline-color: var(--home-color);
+}
+
+/* Evidence Drawer */
+.evidence-drawer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  max-height: 55vh;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  z-index: 200;
+}
+
+.evidence-drawer-header {
+  display: flex;
+  align-items: center;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.evidence-drawer-title {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 600;
+  flex: 1;
+}
+
+.evidence-drawer-close {
+  padding: 4px 10px;
+  font-size: 0.9rem;
+}
+
+.evidence-drawer-body {
+  overflow-y: auto;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.evidence-section { display: flex; flex-direction: column; gap: 6px; }
+
+.evidence-section-title {
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.evidence-events-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.evidence-event-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 5px 10px;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  color: var(--text);
+  transition: background 0.1s, border-color 0.1s;
+}
+
+.evidence-event-btn:hover, .evidence-event-btn:focus-visible {
+  background: var(--surface-raised);
+  border-color: var(--home-color);
+  outline: 2px solid var(--home-color);
+  outline-offset: 2px;
+}
+
+.evidence-event-clock {
+  font-family: var(--font-display);
+  font-weight: 600;
+  color: var(--home-color);
+  min-width: 36px;
+}
+
+.evidence-event-type { font-weight: 500; }
+
+.evidence-event-player { color: var(--text-muted); }
+
+.evidence-event-outcome {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-left: auto;
+}
+
+/* Candidates table */
+.evidence-candidates-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+
+.evidence-candidates-table th {
+  text-align: right;
+  padding: 2px 5px;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  letter-spacing: 0.03em;
+  border-bottom: 1px solid var(--border);
+}
+
+.evidence-candidates-table th:first-child { text-align: left; }
+
+.evidence-candidates-table td {
+  text-align: right;
+  padding: 3px 5px;
+  font-family: var(--font-display);
+}
+
+.evidence-candidates-table td:first-child {
+  text-align: left;
+  font-family: var(--font-body);
+}
+
+.candidate-actual { background: rgba(191, 232, 255, 0.08); }
+.candidate-actual .candidate-total { color: var(--ghost-color); }
+.candidate-name { max-width: 120px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Formula */
+.evidence-formula-note {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.evidence-formula-dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3px 12px;
+  font-size: 0.82rem;
+}
+
+.evidence-formula-dl dt {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  align-self: start;
+  padding-top: 2px;
+}
+
+.evidence-formula-dl dd { display: flex; flex-wrap: wrap; gap: 4px; }
+
+.evidence-weight-chip {
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 5px;
+}
+
+.evidence-formula-dl code {
+  font-size: 0.78rem;
+  background: var(--surface-raised);
+  border-radius: 3px;
+  padding: 1px 5px;
+}
+
+.evidence-run-source {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.evidence-run-errors {
+  font-size: 0.78rem;
+  color: #f06060;
+  margin-top: 4px;
+}

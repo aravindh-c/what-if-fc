@@ -6,6 +6,7 @@ interface MomentCardProps {
   bundle: ReplayBundle
   mode: DisplayMode
   ledger?: LedgerData
+  onDrawerToggle: () => void
 }
 
 function fmt(n: number) { return n.toFixed(2) }
@@ -100,8 +101,17 @@ function AnalystView({ overlay, ledger }: { overlay: OverlayData; ledger?: Ledge
   )
 }
 
-export default function MomentCard({ overlay, bundle, mode, ledger }: MomentCardProps) {
+function WhyButton({ onToggle }: { onToggle: () => void }) {
+  return (
+    <button className="btn btn-why" onClick={onToggle}>
+      Why do we say this?
+    </button>
+  )
+}
+
+export default function MomentCard({ overlay, bundle, mode, ledger, onDrawerToggle }: MomentCardProps) {
   const scores = overlay.scores
+  const hasLedger = !!ledger
 
   if (mode === 'compare' && overlay.moment_type === 'ghost_pass') {
     return (
@@ -115,6 +125,7 @@ export default function MomentCard({ overlay, bundle, mode, ledger }: MomentCard
           <p className="compare-col-label">Analyst</p>
           <AnalystView overlay={overlay} ledger={ledger} />
         </div>
+        {hasLedger && <div className="compare-why"><WhyButton onToggle={onDrawerToggle} /></div>}
       </div>
     )
   }
@@ -129,6 +140,7 @@ export default function MomentCard({ overlay, bundle, mode, ledger }: MomentCard
           const scorer = ev?.player_id ? bundle.meta.players[ev.player_id] : undefined
           return scorer ? <p className="moment-scorer">Scored by {scorer.name}</p> : null
         })()}
+        {hasLedger && <WhyButton onToggle={onDrawerToggle} />}
       </div>
     )
   }
@@ -143,6 +155,7 @@ export default function MomentCard({ overlay, bundle, mode, ledger }: MomentCard
         const scorer = ev?.player_id ? bundle.meta.players[ev.player_id] : undefined
         return scorer ? <p className="moment-scorer">Scored by {scorer.name}</p> : null
       })()}
+      {hasLedger && <WhyButton onToggle={onDrawerToggle} />}
     </div>
   )
 }

@@ -19,6 +19,7 @@ import Timeline from './components/Timeline.tsx'
 import ReplayPicker from './components/ReplayPicker.tsx'
 import MomentCard from './components/MomentCard.tsx'
 import PitchLegend from './components/PitchLegend.tsx'
+import EvidenceDrawer from './components/EvidenceDrawer.tsx'
 
 // ---------------------------------------------------------------------------
 // usePlayback hook
@@ -168,10 +169,12 @@ export default function App() {
   const [bundleError, setBundleError] = useState<string | null>(null)
   const [animKey, setAnimKey] = useState(0)
   const [displayMode, setDisplayMode] = useState<DisplayMode>(getStoredMode)
+  const [drawerOpen, setDrawerOpen] = useState(false)
 
   const changeMode = useCallback((m: DisplayMode) => {
     try { localStorage.setItem('whatiffc_mode', m) } catch { /* ignore */ }
     setDisplayMode(m)
+    if (m === 'analyst') setDrawerOpen(true)
   }, [])
 
   const { clockS, playing, speed, activeOverlay, toggle, play, setSpeed, seek, showMoment } = usePlayback(bundle)
@@ -261,6 +264,7 @@ export default function App() {
   const headerSub   = isScenario ? (b.meta.scenario_why ?? null) : seedSubtitle(b.meta.replay_id)
 
   const activeLedger = activeOverlay && b.ledgers ? b.ledgers[activeOverlay.overlay_id] : undefined
+  const showDrawer = drawerOpen && activeOverlay && activeLedger
 
   return (
     <div className="app-root">
@@ -301,7 +305,13 @@ export default function App() {
           </div>
           <div className="moment-panel">
             {activeOverlay
-              ? <MomentCard overlay={activeOverlay} bundle={b} mode={displayMode} ledger={activeLedger} />
+              ? <MomentCard
+                  overlay={activeOverlay}
+                  bundle={b}
+                  mode={displayMode}
+                  ledger={activeLedger}
+                  onDrawerToggle={() => setDrawerOpen(o => !o)}
+                />
               : <p className="moment-panel-empty">Play the match to see key moments</p>
             }
             {isScenario && (
@@ -333,6 +343,14 @@ export default function App() {
           />
         )}
       </main>
+      {showDrawer && (
+        <EvidenceDrawer
+          ledger={activeLedger}
+          overlay={activeOverlay}
+          onClose={() => setDrawerOpen(false)}
+          onSeek={t => { seek(t); setDrawerOpen(false) }}
+        />
+      )}
     </div>
   )
 }
