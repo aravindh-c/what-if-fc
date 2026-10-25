@@ -60,7 +60,12 @@ def _build_packet(
         pass_difficulty=pass_difficulty,
         ghost_shown=True,
         formula_version="twin-v1",
-        label="Tactical option score, roughly 0 to 1 (very risky passes can go below 0): how threatening, forward, open and safe a pass was. Higher is better. Not a probability.",
+        label=(
+            "Tactical option score, roughly 0 to 1 "
+            "(very risky passes can go below 0): "
+            "how threatening, forward, open and safe a pass was. "
+            "Higher is better. Not a probability."
+        ),
         passer_id=passer_id,
         actual_receiver_id="T01-P10",
         highlight_defenders=["T02-P03"],
@@ -429,7 +434,12 @@ def test_invented_decimal_fails_precision_check() -> None:
         pass_difficulty=28.5,
         ghost_shown=True,
         formula_version="twin-v1",
-        label="Tactical option score, roughly 0 to 1 (very risky passes can go below 0): how threatening, forward, open and safe a pass was. Higher is better. Not a probability.",
+        label=(
+            "Tactical option score, roughly 0 to 1 "
+            "(very risky passes can go below 0): "
+            "how threatening, forward, open and safe a pass was. "
+            "Higher is better. Not a probability."
+        ),
         passer_id="T01-P12",
         actual_receiver_id="T01-P10",
         highlight_defenders=["T02-P03"],

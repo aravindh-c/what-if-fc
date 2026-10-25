@@ -151,7 +151,12 @@ def _packet_from_scenario(scenario):
         pass_difficulty=pd,
         ghost_shown=twin.ghost_shown,
         formula_version=twin.version,
-        label="Tactical option score, roughly 0 to 1 (very risky passes can go below 0): how threatening, forward, open and safe a pass was. Higher is better. Not a probability.",
+        label=(
+            "Tactical option score, roughly 0 to 1 "
+            "(very risky passes can go below 0): "
+            "how threatening, forward, open and safe a pass was. "
+            "Higher is better. Not a probability."
+        ),
         passer_id=ev.player_id,
         actual_receiver_id=ev.receiver_id,
         highlight_defenders=list(twin.visual.highlight_defenders),

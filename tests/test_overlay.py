@@ -67,7 +67,12 @@ def _build_packet(
         pass_difficulty=28.5,
         ghost_shown=ghost_shown,
         formula_version="twin-v1",
-        label="Tactical option score, roughly 0 to 1 (very risky passes can go below 0): how threatening, forward, open and safe a pass was. Higher is better. Not a probability.",
+        label=(
+            "Tactical option score, roughly 0 to 1 "
+            "(very risky passes can go below 0): "
+            "how threatening, forward, open and safe a pass was. "
+            "Higher is better. Not a probability."
+        ),
         passer_id=passer_id,
         actual_receiver_id=actual_receiver_id,
         highlight_defenders=["T02-P03"],
