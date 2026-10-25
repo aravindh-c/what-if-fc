@@ -108,6 +108,7 @@ def list_replays(store: ReplayStore = Depends(get_store)) -> list[dict[str, Any]
                 "kind": meta.get("kind", "unknown"),
                 "title": meta.get("title", rid),
                 "overlays": len(overlays),
+                "description": meta.get("scenario_description") or "",
             }
         )
     return catalog

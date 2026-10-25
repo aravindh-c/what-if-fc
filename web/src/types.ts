@@ -184,6 +184,7 @@ export interface CatalogEntry {
   kind: string
   title: string
   overlays: number
+  description?: string
 }
 
 export interface PlayerPos {
