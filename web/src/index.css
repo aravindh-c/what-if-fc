@@ -111,7 +111,7 @@ body {
   flex-direction: column;
   gap: 10px;
   padding: 10px 16px;
-  max-width: 1100px;
+  max-width: 1120px;
   width: 100%;
   margin: 0 auto;
 }
@@ -150,9 +150,9 @@ body {
 .picker-wrap {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
   gap: 24px;
-  padding: 32px 16px;
+  padding: 32px 0;
 }
 
 .picker-heading {
@@ -163,11 +163,22 @@ body {
 
 .picker-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 12px;
   width: 100%;
-  max-width: 800px;
   list-style: none;
+}
+
+@media (max-width: 700px) {
+  .picker-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 440px) {
+  .picker-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .picker-card {
@@ -1049,7 +1060,6 @@ body {
   align-items: center;
   padding: 40px 0 24px;
   width: 100%;
-  max-width: 800px;
 }
 
 .hero-text {
@@ -1085,6 +1095,20 @@ body {
   border-radius: var(--radius);
   overflow: hidden;
   box-shadow: var(--shadow);
+  position: relative;
+}
+
+.hero-pitch-msg {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  color: var(--chalk);
+  background: rgba(15, 25, 35, 0.55);
+  padding: 8px;
+  text-align: center;
 }
 
 @media (max-width: 680px) {
@@ -1128,7 +1152,6 @@ body {
 
 .how-it-works {
   width: 100%;
-  max-width: 800px;
   padding: 8px 0 32px;
 }
 
@@ -1143,9 +1166,15 @@ body {
 
 .how-steps {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 12px;
   list-style: none;
+}
+
+@media (max-width: 900px) {
+  .how-steps {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 .how-step {
@@ -1396,8 +1425,13 @@ body {
   display: flex;
   flex-direction: column;
   gap: 3px;
-  text-align: center;
+  text-align: left;
   margin-top: auto;
+  max-width: 1120px;
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  box-sizing: border-box;
 }
 
 .footer-link {
