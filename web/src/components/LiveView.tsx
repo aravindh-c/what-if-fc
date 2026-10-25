@@ -34,10 +34,13 @@ export default function LiveView({ matchId, displayMode, onChangeMode, onBack }:
   const [animKey, setAnimKey] = useState(0)
   const [connecting, setConnecting] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [isReplaying, setIsReplaying] = useState(false)
+  const [replayClockS, setReplayClockS] = useState(0)
 
   const sinceClockRef = useRef(0)
   const metaLoadedRef = useRef(false)
   const hasSnapshotRef = useRef(false)
+  const replayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const poll = useCallback(async () => {
     try {
@@ -104,6 +107,13 @@ export default function LiveView({ matchId, displayMode, onChangeMode, onBack }:
 
         setActiveOverlay(newOvs[newOvs.length - 1])
         setAnimKey(k => k + 1)
+
+        // Instant replay: freeze pitch on this moment's snapshot for 12 s
+        const replayClock = newOvs[newOvs.length - 1].match_clock_s
+        setReplayClockS(replayClock)
+        setIsReplaying(true)
+        if (replayTimerRef.current) clearTimeout(replayTimerRef.current)
+        replayTimerRef.current = setTimeout(() => setIsReplaying(false), 12000)
       }
 
       if (metaLoadedRef.current && hasSnapshotRef.current) {
@@ -140,6 +150,7 @@ export default function LiveView({ matchId, displayMode, onChangeMode, onBack }:
     return () => {
       active = false
       if (interval) clearInterval(interval)
+      if (replayTimerRef.current) clearTimeout(replayTimerRef.current)
     }
   }, [matchId, poll])
 
@@ -150,7 +161,13 @@ export default function LiveView({ matchId, displayMode, onChangeMode, onBack }:
   }, [matchId, simulateOutage])
 
   const homeTeam = liveBundle ? (Object.keys(liveBundle.meta.teams)[0] ?? '') : ''
-  const positions = liveBundle ? positionsAt(liveClock, liveBundle) : []
+  const livePositions = liveBundle ? positionsAt(liveClock, liveBundle) : []
+  // During replay, show the frozen snapshot positions so lines/rings align correctly
+  const pitchPositions = (isReplaying && liveBundle)
+    ? positionsAt(replayClockS, liveBundle)
+    : livePositions
+  // Lines and rings only make sense against the replay snapshot — suppress on live positions
+  const pitchOverlay = isReplaying ? activeOverlay : null
   const activeLedger: LedgerData | undefined = activeOverlay && liveBundle?.ledgers
     ? liveBundle.ledgers[activeOverlay.overlay_id]
     : undefined
@@ -207,8 +224,14 @@ export default function LiveView({ matchId, displayMode, onChangeMode, onBack }:
         <div className="app-header-title">
           <span className="app-header-name">{b.meta.title}</span>
           <span className="app-header-sub live-clock-badge">
-            <span className="live-pulse-dot" aria-hidden="true" />
-            {'Live from Fabric · '}{fmtClock(liveClock)}
+            {isReplaying ? (
+              `Replay · ${fmtClock(replayClockS)}`
+            ) : (
+              <>
+                <span className="live-pulse-dot" aria-hidden="true" />
+                {`Live from Fabric · ${fmtClock(liveClock)}`}
+              </>
+            )}
           </span>
         </div>
         <div className="mode-switch" role="group" aria-label="Display mode">
@@ -235,15 +258,15 @@ export default function LiveView({ matchId, displayMode, onChangeMode, onBack }:
         {error && <span className="live-error-badge" title={error}>⚠ poll error</span>}
       </header>
       <main className="app-main">
-        <Scoreboard bundle={b} score={score} clockS={liveClock} />
+        <Scoreboard bundle={b} score={score} clockS={isReplaying ? replayClockS : liveClock} />
         <div className="replay-body">
           <div className="pitch-col">
             <div className="pitch-wrap">
               <Pitch
-                positions={positions}
+                positions={pitchPositions}
                 ball={null}
                 bundle={b}
-                activeOverlay={activeOverlay}
+                activeOverlay={pitchOverlay}
                 homeTeam={homeTeam}
                 animKey={animKey}
               />

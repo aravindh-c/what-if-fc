@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
-import React from 'react'
 import LiveView from '../components/LiveView.tsx'
 import * as api from '../api.ts'
 import type { BundleMeta, LiveOverlay, LiveState } from '../types.ts'
