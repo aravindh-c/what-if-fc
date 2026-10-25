@@ -127,7 +127,7 @@ def _good_director_text(packet: EvidencePacket) -> DirectorText:
             f"Actual tactical option score {packet.twin_actual_score:.2f}, "
             f"ghost {packet.twin_ghost_score:.2f}."
         ),
-        fan_headline=f"Free player at minute {packet.moment_minute}!",
+        fan_headline=f"Better option at minute {packet.moment_minute}!",
         fan_body=f"Option score {packet.twin_actual_score:.2f}.",
     )
 
@@ -383,7 +383,7 @@ def test_length_error_on_attempt1_retried_not_template() -> None:
     long_dt = DirectorText(
         analyst_headline="Ghost Pass at minute 34",
         analyst_body=long_body,
-        fan_headline="Free!",
+        fan_headline="Better option!",
         fan_body="Option score.",
     )
 

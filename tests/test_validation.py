@@ -85,7 +85,7 @@ def _good_overlay_text(packet) -> OverlayText:
         },
         fan={
             "en": NarrativeText(
-                headline=f"Free player at minute {packet.moment_minute}!",
+                headline=f"Better option at minute {packet.moment_minute}!",
                 body=f"Better option scored {packet.twin_ghost_score:.2f}.",
             )
         },
@@ -526,3 +526,61 @@ def test_invented_name_mid_sentence_fails() -> None:
     )
     errors = validate_text(text, packet, _roster())
     assert any("not found in roster" in e for e in errors), errors
+
+
+# ---------------------------------------------------------------------------
+# Space-language gate (AT-SL-01 / AT-SL-02)
+# ---------------------------------------------------------------------------
+
+
+def test_space_word_rejected_when_not_free() -> None:
+    """'free' must be rejected when ghost_nearest_defender_m < 10 (default: 8.3)."""
+    packet = _build_packet(ghost_nearest_def=8.3)
+    text = OverlayText(
+        analyst={
+            "en": NarrativeText(
+                headline=f"Ghost Pass at minute {packet.moment_minute}",
+                body=(
+                    f"Actual score {packet.twin_actual_score:.2f}, "
+                    f"ghost score {packet.twin_ghost_score:.2f}."
+                ),
+            )
+        },
+        fan={
+            "en": NarrativeText(
+                headline="The ghost receiver was free!",
+                body=f"Better option scored {packet.twin_ghost_score:.2f}.",
+            )
+        },
+    )
+    errors = validate_text(text, packet, _roster())
+    assert any("space word" in e for e in errors), (
+        f"Expected space-word error for ghost_nearest_def=8.3; got: {errors}"
+    )
+
+
+def test_space_word_allowed_when_truly_free() -> None:
+    """'free' is allowed when ghost_nearest_defender_m >= 10 AND > actual (3.1)."""
+    packet = _build_packet(ghost_nearest_def=12.0)
+    text = OverlayText(
+        analyst={
+            "en": NarrativeText(
+                headline=f"Ghost Pass at minute {packet.moment_minute}",
+                body=(
+                    f"Actual score {packet.twin_actual_score:.2f}, "
+                    f"ghost score {packet.twin_ghost_score:.2f}."
+                ),
+            )
+        },
+        fan={
+            "en": NarrativeText(
+                headline="The ghost receiver was free!",
+                body=f"Better option scored {packet.twin_ghost_score:.2f}.",
+            )
+        },
+    )
+    errors = validate_text(text, packet, _roster())
+    space_errors = [e for e in errors if "space word" in e]
+    assert not space_errors, (
+        f"Unexpected space-word error for ghost_nearest_def=12.0: {space_errors}"
+    )

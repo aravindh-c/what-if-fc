@@ -31,7 +31,7 @@ Same as above, plus:
 ## Story shape
 
 ### `analyst_headline` (≤70 chars)
-Name the passer and the ghost receiver in a single phrase. Example structure: "[Passer] to [Actual Receiver] — [Ghost Receiver] was free".
+Name the passer and the ghost receiver in a single phrase. Example structure: "[Passer] to [Actual Receiver] — [Ghost Receiver] was free" (only if the free-player condition is met — see Rules below).
 
 ### `analyst_body` (≤240 chars)
 Two plain sentences:
@@ -60,7 +60,7 @@ A short line a TV commentator could say, built from these same facts. Omit (`nul
   "actual_receiver_name": "Troy Basset",
   "ghost_receiver_name": "Keiran Webb",
   "actual_nearest_defender_m": 2.1,
-  "ghost_nearest_defender_m": 9.4,
+  "ghost_nearest_defender_m": 12.4,
   "pass_difficulty": 31.5,
   "twin_actual_score": 0.41,
   "twin_ghost_score": 0.68,
@@ -68,13 +68,15 @@ A short line a TV commentator could say, built from these same facts. Omit (`nul
 }
 ```
 
+`ghost_nearest_defender_m` (12.4) is ≥ 10 and greater than `actual_nearest_defender_m` (2.1), so the free-player language is allowed.
+
 **Output**:
 ```json
 {
-  "analyst_headline": "Holloway to Basset — Webb was free at 9.4 m",
-  "analyst_body": "Sam Holloway played to Troy Basset, nearest defender 2.1 m away (pass difficulty 31.5). Keiran Webb was clear at 9.4 m — tactical option score 0.68 vs 0.41.",
+  "analyst_headline": "Holloway to Basset — Webb was free at 12.4 m",
+  "analyst_body": "Sam Holloway played to Troy Basset, nearest defender 2.1 m away (pass difficulty 31.5). Keiran Webb was clear at 12.4 m — tactical option score 0.68 vs 0.41.",
   "fan_headline": "Keiran Webb was wide open!",
-  "fan_body": "Sam Holloway had a free player in Keiran Webb — 9.4 m of space, but the pass went elsewhere.",
+  "fan_body": "Sam Holloway had a free player in Keiran Webb — 12.4 m of space, but the pass went elsewhere.",
   "cue": "There was a free man — did Holloway see Webb?"
 }
 ```
@@ -105,6 +107,14 @@ Use at most **one** number in the fan text.
 **Numbers**: every number you write must come from `packet_summary` or from a value listed in `findings.claims[*].evidence_fields`. Write each number at the exact decimal precision of its source.
 
 **Player names**: only name players whose IDs appear in `packet_summary.passer_id`, `actual_receiver_id`, `twin_ghost_player_id`, or `highlight_defenders`. Use the full name from `players`. Do not name any other player.
+
+**Space language**: only use "free", "unmarked" or "wide open" when
+`ghost_nearest_defender_m >= 10` **AND** `ghost_nearest_defender_m > actual_nearest_defender_m`.
+If that condition is not met, explain the biggest component score difference instead:
+- F (Open path) is the largest gain → "a clearer passing lane"
+- R (Risk) is the largest gain → "far less risk of losing it"
+- P (Progress) is the largest gain → "more forward progress"
+- T (Threat) is the largest gain → "a more threatening position"
 
 **Banned terms**: never write xG, xA, xT, "expected goals", "expected assists", "probability", or "% chance".
 

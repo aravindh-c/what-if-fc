@@ -301,3 +301,89 @@ def test_turnover_text_names_ball_winner() -> None:
     assert "Wren Falkner wins" not in full_text, (
         f"Ball loser 'Wren Falkner wins' must not appear in turnover text:\n{full_text}"
     )
+
+
+# ---------------------------------------------------------------------------
+# Space-language: template must respect ghost_nearest_defender_m gate
+# ---------------------------------------------------------------------------
+
+
+def _build_ghost_pass_packet(ghost_nearest_def: float, actual_nearest_def: float):
+    """Minimal EvidencePacket for a ghost_pass moment with custom defender distances."""
+    from analytics.evidence import EvidencePacket, LiveMetrics
+
+    live = LiveMetrics(
+        minute=42,
+        momentum_share={"T01": 0.55, "T02": 0.45},
+        pressure_index={"T01": 1.2, "T02": 0.8},
+        scoreline={"T01": 0, "T02": 0},
+    )
+    return EvidencePacket(
+        match_id="match_test",
+        moment_type="ghost_pass",
+        moment_minute=42,
+        moment_score=0.7,
+        event_ids=["ev_tpl001"],
+        live_metrics=live,
+        twin_version="twin-v1",
+        twin_weights={"T": 0.35, "P": 0.25, "F": 0.25, "R": 0.15},
+        twin_delta=0.22,
+        twin_actual_score=0.41,
+        twin_ghost_score=0.63,
+        twin_ghost_player_id="T01-P08",
+        twin_components_actual={"T": 0.4, "P": 0.3, "F": 0.7, "R": 0.2},
+        twin_components_ghost={"T": 0.7, "P": 0.6, "F": 0.9, "R": 0.1},
+        pass_difficulty=28.5,
+        ghost_shown=True,
+        formula_version="twin-v1",
+        label=(
+            "Tactical option score, roughly 0 to 1 "
+            "(very risky passes can go below 0): "
+            "how threatening, forward, open and safe a pass was. "
+            "Higher is better. Not a probability."
+        ),
+        passer_id="T01-P12",
+        actual_receiver_id="T01-P10",
+        highlight_defenders=["T02-P03"],
+        actual_pass_length_m=18.5,
+        ghost_pass_length_m=31.2,
+        actual_nearest_defender_m=actual_nearest_def,
+        ghost_nearest_defender_m=ghost_nearest_def,
+    )
+
+
+def test_ghost_pass_text_uses_free_when_condition_met() -> None:
+    """Fan headline must mention 'free' when ghost_def >= 10 AND > actual_def."""
+    packet = _build_ghost_pass_packet(ghost_nearest_def=12.0, actual_nearest_def=3.1)
+    roster = _roster(7)
+    result = build_narrative(packet, roster)
+    fan_text = result.fan["en"].headline + " " + result.fan["en"].body
+    assert "free" in fan_text.lower(), (
+        f"Expected 'free' in fan text when condition met; got:\n{fan_text}"
+    )
+    errors = validate_text(result, packet, roster)
+    assert errors == [], f"Template output failed validation: {errors}"
+
+
+def test_ghost_pass_text_uses_component_reason_when_not_free() -> None:
+    """Fan text must NOT use 'free' when ghost_def < 10; must use a component reason."""
+    import re
+
+    packet = _build_ghost_pass_packet(ghost_nearest_def=8.3, actual_nearest_def=3.1)
+    roster = _roster(7)
+    result = build_narrative(packet, roster)
+    fan_text = result.fan["en"].headline + " " + result.fan["en"].body
+    assert not re.search(r"\b(free|unmarked|wide\s+open)\b", fan_text, re.IGNORECASE), (
+        f"Space word must not appear when condition not met; got:\n{fan_text}"
+    )
+    component_phrases = [
+        "a clearer passing lane",
+        "far less risk of losing it",
+        "more forward progress",
+        "a more threatening position",
+    ]
+    assert any(phrase in fan_text for phrase in component_phrases), (
+        f"Expected a component-reason phrase; got:\n{fan_text}"
+    )
+    errors = validate_text(result, packet, roster)
+    assert errors == [], f"Template output failed validation: {errors}"

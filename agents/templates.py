@@ -55,6 +55,26 @@ def _team_pressure(packet) -> tuple[str, float]:
 # Per-moment-type builders
 # ---------------------------------------------------------------------------
 
+_COMPONENT_REASON: dict[str, str] = {
+    "F": "a clearer passing lane",
+    "R": "far less risk of losing it",
+    "P": "more forward progress",
+    "T": "a more threatening position",
+}
+
+
+def _biggest_component_reason(packet) -> str:
+    """Plain-English explanation of the component with the largest ghost advantage."""
+    actual = packet.twin_components_actual or {}
+    ghost = packet.twin_components_ghost or {}
+    if not actual or not ghost:
+        return "a better option overall"
+    best = max(
+        _COMPONENT_REASON,
+        key=lambda k: float(ghost.get(k, 0.0)) - float(actual.get(k, 0.0)),
+    )
+    return _COMPONENT_REASON[best]
+
 
 def _ghost_pass_text(packet, roster_map: dict[str, str]) -> OverlayText:
     receiver = _name(packet.actual_receiver_id, roster_map)
@@ -86,11 +106,25 @@ def _ghost_pass_text(packet, roster_map: dict[str, str]) -> OverlayText:
         f" Ghost target {ghost}: option score {g_score:.2f}.{def_note}"
     )
 
-    f_headline = f"There was a free player at minute {packet.moment_minute}!"
-    f_body = (
-        f"{ghost} had more space: better option score {g_score:.2f} "
-        f"vs {a_score:.2f}."
+    # Only claim the receiver was "free" when ghost_nearest_defender_m >= 10
+    # AND it is greater than the actual receiver's defender distance.
+    is_truly_free = (
+        g_def is not None and g_def >= 10.0
+        and a_def is not None and g_def > a_def
     )
+    if is_truly_free:
+        f_headline = f"{ghost} was free at {g_def:.1f} m!"
+        f_body = (
+            f"{ghost} had {g_def:.1f} m of space; "
+            f"better option score {g_score:.2f} vs {a_score:.2f}."
+        )
+    else:
+        reason = _biggest_component_reason(packet)
+        f_headline = f"Better option at minute {packet.moment_minute}!"
+        f_body = (
+            f"{ghost} offered {reason}; "
+            f"better option score {g_score:.2f} vs {a_score:.2f}."
+        )
 
     return OverlayText(
         analyst={"en": NarrativeText(headline=a_headline, body=a_body)},

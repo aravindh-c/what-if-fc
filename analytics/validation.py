@@ -32,6 +32,13 @@ _BANNED_LABELS: tuple[str, ...] = (
 
 _EVENT_ID_RE = re.compile(r"\bev_[A-Za-z0-9_]+\b")
 
+# "free", "unmarked", "wide open" only allowed when ghost_nearest_defender_m >= 10
+# AND > actual_nearest_defender_m (for ghost-pass moment types only).
+_SPACE_WORDS_RE = re.compile(r"\b(free|unmarked|wide\s+open)\b", re.IGNORECASE)
+_GHOST_PASS_TYPES: frozenset[str] = frozenset(
+    {"ghost_pass", "high_pressure_final_third_pass"}
+)
+
 # Captures an optional leading minus, a number, and an optional trailing % sign.
 # Negative lookbehind prevents matching digits inside identifiers like "T01-P08"
 # (where the minus is preceded by an alphanumeric character).
@@ -309,6 +316,23 @@ def validate_text(
         for pattern, label in zip(_BANNED_PATTERNS, _BANNED_LABELS, strict=True):
             if pattern.search(piece):
                 errors.append(f"banned term {label!r} found in text")
+
+    # Space-language check: "free", "unmarked", "wide open" only when
+    # ghost_nearest_defender_m >= 10 AND > actual_nearest_defender_m.
+    if packet.moment_type in _GHOST_PASS_TYPES:
+        g_def = getattr(packet, "ghost_nearest_defender_m", None)
+        a_def = getattr(packet, "actual_nearest_defender_m", None)
+        space_allowed = (
+            g_def is not None and float(g_def) >= 10.0
+            and a_def is not None and float(g_def) > float(a_def)
+        )
+        if not space_allowed:
+            for piece in all_pieces:
+                for m in _SPACE_WORDS_RE.finditer(piece):
+                    errors.append(
+                        f"space word {m.group()!r} requires ghost_nearest_defender_m "
+                        f">= 10 and > actual (got ghost={g_def}, actual={a_def})"
+                    )
 
     # Build allowed number sets
     sets, pct_s0 = _packet_number_sets(packet)
