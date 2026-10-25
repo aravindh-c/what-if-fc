@@ -45,7 +45,10 @@ python -m simulator.samples          # writes data/samples/*.json
 ruff check . && pytest -q            # lint + tests
 ```
 
-**Commit hook:** run `git config core.hooksPath .githooks` once after cloning.
+**Git hooks:** run `git config core.hooksPath .githooks` once after cloning.
+A **pre-push** hook runs `ruff check .`, `pytest -q`, and (when `web/` files
+changed) `npm --prefix web run lint` and `npm --prefix web test`, aborting
+the push on failure.
 
 Copy `.env.example` to `.env` when you reach the Azure steps; never commit `.env`.
 

@@ -1,0 +1,36 @@
+#!/bin/sh
+# Pre-push checks: lint, tests, and (when web files changed) frontend checks.
+# Abort the push on any failure.
+set -e
+
+echo "==> ruff check ."
+ruff check .
+
+echo "==> python -m pytest -q"
+python -m pytest -q
+
+# Check whether any web/ files are in the commits being pushed.
+# $1 = remote name, $2 = remote url; stdin has lines: <local-ref> <local-sha> <remote-ref> <remote-sha>
+WEB_CHANGED=0
+while read local_ref local_sha remote_ref remote_sha; do
+    # For a new branch remote_sha is the zero SHA
+    zero_sha="0000000000000000000000000000000000000000"
+    if [ "$remote_sha" = "$zero_sha" ]; then
+        range="$local_sha"
+    else
+        range="$remote_sha..$local_sha"
+    fi
+    if git diff --name-only "$range" 2>/dev/null | grep -q '^web/'; then
+        WEB_CHANGED=1
+        break
+    fi
+done
+
+if [ "$WEB_CHANGED" = "1" ]; then
+    echo "==> npm --prefix web run lint"
+    npm --prefix web run lint
+    echo "==> npm --prefix web test"
+    npm --prefix web test
+fi
+
+echo "==> All pre-push checks passed."

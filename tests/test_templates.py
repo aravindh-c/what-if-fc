@@ -246,10 +246,10 @@ def test_build_narrative_no_banned_terms() -> None:
 
 def test_turnover_text_names_ball_winner() -> None:
     """Seed 11's 69' turnover: Noel Rutherglen wins the ball, Wren Falkner loses it."""
-    from simulator.reference_data import build_players
-    from simulator.run import run_match
     from analytics.metrics import key_moments, pass_event_for
     from analytics.tactical_twin import score_pass as _score_pass
+    from simulator.reference_data import build_players
+    from simulator.run import run_match
 
     match_id, events, snapshots = run_match(11, "T01", "T02")
     snap_map = {s.snapshot_id: s for s in snapshots}
