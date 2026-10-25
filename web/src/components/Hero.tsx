@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import type { CatalogEntry, ReplayBundle } from '../types.ts'
+import type { CatalogEntry, ReplayBundle, SnapshotData } from '../types.ts'
 import { loadReplay } from '../api.ts'
 import PitchThumb from './PitchThumb.tsx'
 
@@ -34,7 +34,15 @@ export default function Hero({ entries, onSelect, loading }: HeroProps) {
     return () => clearInterval(timer)
   }, [heroBundle])
 
-  const visual = heroBundle?.overlays[0]?.visual ?? null
+  const ov0 = heroBundle?.overlays[0]
+  const visual = ov0?.visual ?? null
+  const heroSnapshot: SnapshotData | null = (() => {
+    if (!heroBundle || !ov0) return null
+    const evId = ov0.evidence.event_ids[0]
+    const ev = evId ? heroBundle.events.find(e => e.event_id === evId) : null
+    const sid = ev?.snapshot_id
+    return sid ? (heroBundle.snapshots.find(s => s.snapshot_id === sid) ?? null) : null
+  })()
 
   return (
     <section className="hero" aria-labelledby="hero-headline">
@@ -64,7 +72,13 @@ export default function Hero({ entries, onSelect, loading }: HeroProps) {
         </div>
       </div>
       <div className="hero-pitch" aria-hidden="true">
-        <PitchThumb visual={visual} animKey={animKey} animate={!!visual} />
+        <PitchThumb
+          visual={visual}
+          snapshot={heroSnapshot}
+          meta={heroBundle?.meta ?? null}
+          animKey={animKey}
+          animate={!!visual}
+        />
         {heroError && (
           <p className="hero-pitch-msg">Preview unavailable — click to load the scenario.</p>
         )}

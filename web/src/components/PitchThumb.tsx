@@ -1,16 +1,21 @@
-import type { OverlayVisualData } from '../types.ts'
+import type { OverlayVisualData, SnapshotData, BundleMeta } from '../types.ts'
 
 interface PitchThumbProps {
   visual: OverlayVisualData | null | undefined
+  snapshot?: SnapshotData | null
+  meta?: BundleMeta | null
   animKey?: number
   animate?: boolean
 }
 
 const L = 105, W = 68
 
-export default function PitchThumb({ visual, animKey = 0, animate = false }: PitchThumbProps) {
+export default function PitchThumb({ visual, snapshot, meta, animKey = 0, animate = false }: PitchThumbProps) {
   const actual = visual?.actual
   const ghost  = visual?.ghost
+
+  const teamIds = meta ? Object.keys(meta.teams) : []
+  const teamColor = (tid: string) => tid === teamIds[0] ? '#E3A52B' : '#3E5C9A'
 
   return (
     <svg viewBox={`0 0 ${L} ${W}`} className="pitch-thumb-svg" aria-hidden="true">
@@ -25,6 +30,23 @@ export default function PitchThumb({ visual, animKey = 0, animate = false }: Pit
         <rect x={0} y={13.84} width={16.5} height={40.32}/>
         <rect x={L - 16.5} y={13.84} width={16.5} height={40.32}/>
       </g>
+      {snapshot && meta && snapshot.positions.map(p => {
+        const shirt = meta.players[p.player_id]?.shirt_number
+        return (
+          <g key={p.player_id}>
+            <circle cx={p.x} cy={p.y} r={2}
+              fill={teamColor(p.team_id)} stroke="#0f1923" strokeWidth="0.25" />
+            {shirt != null && (
+              <text x={p.x} y={p.y + 0.65}
+                fontSize="1.5" textAnchor="middle"
+                fill="#0f1923" fontWeight="700"
+                style={{ pointerEvents: 'none' }}>
+                {shirt}
+              </text>
+            )}
+          </g>
+        )
+      })}
       {actual && (
         <line
           key={`a${animKey}`}
