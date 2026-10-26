@@ -8,6 +8,22 @@ interface SeasonSectionProps {
 }
 
 // ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function relativeTime(isoStr: string): string {
+  const diff = Date.now() - new Date(isoStr).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins} minute${mins === 1 ? '' : 's'} ago`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`
+  const days = Math.floor(hours / 24)
+  if (days < 30) return `${days} day${days === 1 ? '' : 's'} ago`
+  return new Date(isoStr).toLocaleDateString()
+}
+
+// ---------------------------------------------------------------------------
 // Standings table
 // ---------------------------------------------------------------------------
 
@@ -19,14 +35,14 @@ function StandingsTable({ standings }: { standings: SeasonStandingRow[] }) {
         <thead>
           <tr>
             <th className="col-team">Team</th>
-            <th>P</th>
-            <th>W</th>
-            <th>D</th>
-            <th>L</th>
-            <th>GF</th>
-            <th>GA</th>
-            <th>GD</th>
-            <th>Pts</th>
+            <th title="Played"><abbr title="Played">P</abbr></th>
+            <th title="Won"><abbr title="Won">W</abbr></th>
+            <th title="Drawn"><abbr title="Drawn">D</abbr></th>
+            <th title="Lost"><abbr title="Lost">L</abbr></th>
+            <th className="col-gf" title="Goals for"><abbr title="Goals for">GF</abbr></th>
+            <th className="col-ga" title="Goals against"><abbr title="Goals against">GA</abbr></th>
+            <th title="Goal difference"><abbr title="Goal difference">GD</abbr></th>
+            <th title="Points"><abbr title="Points">Pts</abbr></th>
           </tr>
         </thead>
         <tbody>
@@ -46,8 +62,8 @@ function StandingsTable({ standings }: { standings: SeasonStandingRow[] }) {
               <td>{row.won}</td>
               <td>{row.drawn}</td>
               <td>{row.lost}</td>
-              <td>{row.goals_for}</td>
-              <td>{row.goals_against}</td>
+              <td className="col-gf">{row.goals_for}</td>
+              <td className="col-ga">{row.goals_against}</td>
               <td className={row.goal_diff > 0 ? 'pos' : row.goal_diff < 0 ? 'neg' : ''}>
                 {row.goal_diff > 0 ? `+${row.goal_diff}` : row.goal_diff}
               </td>
@@ -56,6 +72,16 @@ function StandingsTable({ standings }: { standings: SeasonStandingRow[] }) {
           ))}
         </tbody>
       </table>
+      <p className="standings-legend">
+        <abbr title="Played">P</abbr> played ·{' '}
+        <abbr title="Won">W</abbr> won ·{' '}
+        <abbr title="Drawn">D</abbr> drawn ·{' '}
+        <abbr title="Lost">L</abbr> lost ·{' '}
+        <abbr title="Goals for">GF</abbr> goals for ·{' '}
+        <abbr title="Goals against">GA</abbr> goals against ·{' '}
+        <abbr title="Goal difference">GD</abbr> goal difference ·{' '}
+        <abbr title="Points">Pts</abbr> points (3 for a win, 1 for a draw)
+      </p>
     </div>
   )
 }
@@ -111,6 +137,7 @@ function MatchResultCard({
   const homeColor = homeStats?.team_color ?? '#E3A52B'
   const awayColor = awayStats?.team_color ?? '#3E5C9A'
   const hasReplay = entries.some(e => e.replay_id === match.match_id)
+  const topPlayer = match.top_players[0]
 
   return (
     <div className="season-result-card">
@@ -149,6 +176,14 @@ function MatchResultCard({
           />
         </div>
       )}
+      {topPlayer?.name != null && (
+        <p className="result-top-performer">
+          Top performer: {topPlayer.name}
+          {topPlayer.shirt_number != null ? ` (#${topPlayer.shirt_number})` : ''},
+          {' '}{topPlayer.goals} {topPlayer.goals === 1 ? 'goal' : 'goals'},{' '}
+          {topPlayer.shots} {topPlayer.shots === 1 ? 'shot' : 'shots'}
+        </p>
+      )}
       {hasReplay && (
         <button
           className="btn btn-watch-replay"
@@ -181,19 +216,19 @@ function TeamCompTiles({ teamTotals }: { teamTotals: SeasonTeamTotal[] }) {
             <p className="team-tile-name">{t.team_name ?? t.team_id}</p>
             <dl className="team-tile-stats">
               <div>
-                <dt>Poss (events)</dt>
+                <dt>Possession (event share)</dt>
                 <dd>{t.avg_possession_pct.toFixed(1)}%</dd>
               </div>
               <div>
-                <dt>Pass%</dt>
+                <dt>Pass completion</dt>
                 <dd>{t.avg_completion_pct.toFixed(1)}%</dd>
               </div>
               <div>
-                <dt>Shots/game</dt>
+                <dt>Shots per match</dt>
                 <dd>{t.shots_per_match.toFixed(1)}</dd>
               </div>
               <div>
-                <dt>Goals/game</dt>
+                <dt>Goals per match</dt>
                 <dd>{t.goals_per_match.toFixed(1)}</dd>
               </div>
             </dl>
@@ -211,15 +246,15 @@ function TeamCompTiles({ teamTotals }: { teamTotals: SeasonTeamTotal[] }) {
 function DataQualityStrip({ season }: { season: Season }) {
   const s = season.source
   const [tipVisible, setTipVisible] = useState(false)
-  const rejPct = s.bronze_rows > 0 ? ((s.rejected_rows / s.bronze_rows) * 100).toFixed(1) : '0.0'
 
   return (
     <div className="dq-strip">
       <span className="dq-label">
-        Data quality:{' '}
-        <strong>{s.silver_rows.toLocaleString()}</strong> events from{' '}
-        <strong>{s.bronze_rows.toLocaleString()}</strong> bronze rows
-        {' '}across <strong>{s.matches}</strong> {s.matches === 1 ? 'match' : 'matches'}.
+        <strong>{s.bronze_rows.toLocaleString()}</strong> rows streamed →{' '}
+        <strong>{s.duplicate_rows.toLocaleString()}</strong> duplicates removed,{' '}
+        <strong>{s.rejected_rows.toLocaleString()}</strong> rejected →{' '}
+        <strong>{s.silver_rows.toLocaleString()}</strong> clean events from{' '}
+        <strong>{s.matches}</strong> {s.matches === 1 ? 'match' : 'matches'}.
       </span>
       <button
         className="dq-info-btn"
@@ -231,8 +266,6 @@ function DataQualityStrip({ season }: { season: Season }) {
       </button>
       {tipVisible && (
         <div className="dq-tooltip" role="tooltip">
-          <p><strong>{s.rejected_rows.toLocaleString()}</strong> rows rejected ({rejPct}%)</p>
-          <p><strong>{s.duplicate_rows.toLocaleString()}</strong> duplicates removed</p>
           <p>Gold run ID: <code>{season.run_id}</code></p>
           <p>Generated: {new Date(season.generated_at).toLocaleString()}</p>
         </div>
@@ -256,14 +289,21 @@ export default function SeasonSection({ entries, onSelect }: SeasonSectionProps)
 
   if (season === null) return null
 
+  const matchesNewestFirst = [...season.matches].sort((a, b) => b.seed - a.seed)
+
   return (
     <section className="season-section" aria-label="Season">
-      <h2 className="season-heading">Season</h2>
+      <div className="season-header-wrap">
+        <h2 className="season-heading">Season so far</h2>
+        <p className="season-header-sub">
+          Built by the Fabric pipeline from the gold tables · updated {relativeTime(season.generated_at)}
+        </p>
+      </div>
       <StandingsTable standings={season.standings} />
       <div className="season-results">
         <h3 className="season-subhead">Results</h3>
         <div className="season-results-grid">
-          {season.matches.map(m => (
+          {matchesNewestFirst.map(m => (
             <MatchResultCard key={m.match_id} match={m} entries={entries} onSelect={onSelect} />
           ))}
         </div>

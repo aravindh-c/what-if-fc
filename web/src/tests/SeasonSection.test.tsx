@@ -109,7 +109,20 @@ function makeSeason(overrides: Partial<Season> = {}): Season {
             tackles_won: 9, interceptions: 5, avg_pressure_on_passes: 0.289,
           },
         },
-        top_players: [],
+        top_players: [
+          {
+            player_id: 'T01-P09',
+            team_id: 'T01',
+            name: 'Kian Oyelaran',
+            shirt_number: 9,
+            goals: 1,
+            shots: 3,
+            passes: 28,
+            completion_pct: 82.1,
+            tackles_won: 0,
+            interceptions: 0,
+          },
+        ],
       },
     ],
     team_totals: [
@@ -200,5 +213,33 @@ describe('SeasonSection', () => {
     await waitFor(() => screen.getByText('Standings'))
 
     expect(screen.getByText(/2,847/)).toBeTruthy()
+  })
+
+  it('renders top performer line for match with top_players', async () => {
+    mockGetSeason.mockResolvedValue(makeSeason())
+    render(<SeasonSection entries={[]} onSelect={vi.fn()} />)
+    await waitFor(() => screen.getByText('Standings'))
+
+    expect(screen.getByText(/Top performer: Kian Oyelaran \(#9\)/)).toBeTruthy()
+  })
+
+  it('renders standings legend line', async () => {
+    mockGetSeason.mockResolvedValue(makeSeason())
+    render(<SeasonSection entries={[]} onSelect={vi.fn()} />)
+    await waitFor(() => screen.getByText('Standings'))
+
+    expect(screen.getByText(/3 for a win, 1 for a draw/)).toBeTruthy()
+  })
+
+  it('renders results newest-first (highest seed first)', async () => {
+    mockGetSeason.mockResolvedValue(makeSeason())
+    render(<SeasonSection entries={[]} onSelect={vi.fn()} />)
+    await waitFor(() => screen.getByText('Standings'))
+
+    const scoreEls = screen.getAllByText(/^[0-9]+–[0-9]+$/)
+    const scores = scoreEls.map(el => el.textContent ?? '')
+    const idx11 = scores.findIndex(s => s === '1–1')
+    const idx7 = scores.findIndex(s => s === '2–0')
+    expect(idx11).toBeLessThan(idx7)
   })
 })
