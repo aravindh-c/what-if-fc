@@ -126,8 +126,10 @@ class KqlBackend(Protocol):
 
 
 class FabricKql:
-    """Queries the live Eventhouse via stored functions using Azure CLI auth.
+    """Queries the live Eventhouse via stored functions.
 
+    Uses DefaultAzureCredential so the container's managed identity
+    (AZURE_CLIENT_ID) and az login both work without code changes.
     Calls only our stored functions (MatchStats, Momentum, PressureIndex,
     EventsClean). No free-form queries.
     """
@@ -135,15 +137,18 @@ class FabricKql:
     def __init__(self, cluster_uri: str, database: str) -> None:
         self._cluster_uri = cluster_uri
         self._database = database
+        self._client = None  # created lazily on first _run, then reused
 
     def _run(self, query: str) -> list[dict]:
-        from azure.kusto.data import KustoClient, KustoConnectionStringBuilder
+        if self._client is None:
+            from azure.identity import DefaultAzureCredential
+            from azure.kusto.data import KustoClient, KustoConnectionStringBuilder
 
-        kcsb = KustoConnectionStringBuilder.with_az_cli_authentication(
-            self._cluster_uri
-        )
-        client = KustoClient(kcsb)
-        response = client.execute(self._database, query)
+            kcsb = KustoConnectionStringBuilder.with_azure_token_credential(
+                self._cluster_uri, DefaultAzureCredential()
+            )
+            self._client = KustoClient(kcsb)
+        response = self._client.execute(self._database, query)
         rows: list[dict] = []
         for table in response.primary_results:
             for row in table:

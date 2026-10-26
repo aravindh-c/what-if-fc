@@ -208,3 +208,73 @@ def test_local_kql_is_kql_backend() -> None:
 
     events, _ = _build_events()
     assert isinstance(LocalKql(events), KqlBackend)
+
+
+# ---------------------------------------------------------------------------
+# FabricKql – credential wiring
+# ---------------------------------------------------------------------------
+
+
+def test_fabric_kql_uses_default_azure_credential() -> None:
+    """_run creates the KustoClient with with_azure_token_credential."""
+    pytest.importorskip("azure.kusto.data")
+    pytest.importorskip("azure.identity")
+
+    from unittest.mock import MagicMock, patch
+
+    from agents.kql_tools import FabricKql
+
+    fake_cred = MagicMock(name="cred")
+    fake_kcsb = MagicMock(name="kcsb")
+    fake_table = MagicMock()
+    fake_table.columns = []
+    fake_table.__iter__ = lambda self: iter([])
+    fake_response = MagicMock()
+    fake_response.primary_results = [fake_table]
+    fake_client = MagicMock()
+    fake_client.execute.return_value = fake_response
+
+    with (
+        patch("azure.identity.DefaultAzureCredential", return_value=fake_cred),
+        patch("azure.kusto.data.KustoConnectionStringBuilder") as MockBuilder,
+        patch("azure.kusto.data.KustoClient", return_value=fake_client) as MockClient,
+    ):
+        MockBuilder.with_azure_token_credential.return_value = fake_kcsb
+
+        kql = FabricKql("https://test.kusto.windows.net", "db")
+        kql._run("TestQuery()")
+
+        MockBuilder.with_azure_token_credential.assert_called_once_with(
+            "https://test.kusto.windows.net", fake_cred
+        )
+        MockClient.assert_called_once_with(fake_kcsb)
+
+
+def test_fabric_kql_reuses_client_across_calls() -> None:
+    """KustoClient is created once and reused on subsequent _run calls."""
+    pytest.importorskip("azure.kusto.data")
+    pytest.importorskip("azure.identity")
+
+    from unittest.mock import MagicMock, patch
+
+    from agents.kql_tools import FabricKql
+
+    fake_table = MagicMock()
+    fake_table.columns = []
+    fake_table.__iter__ = lambda self: iter([])
+    fake_response = MagicMock()
+    fake_response.primary_results = [fake_table]
+    fake_client = MagicMock()
+    fake_client.execute.return_value = fake_response
+
+    with (
+        patch("azure.identity.DefaultAzureCredential"),
+        patch("azure.kusto.data.KustoConnectionStringBuilder"),
+        patch("azure.kusto.data.KustoClient", return_value=fake_client) as MockClient,
+    ):
+        kql = FabricKql("https://test.kusto.windows.net", "db")
+        kql._run("Q1()")
+        kql._run("Q2()")
+
+        assert MockClient.call_count == 1  # constructed only once
+        assert fake_client.execute.call_count == 2
