@@ -30,6 +30,8 @@ Broadcast graphics and stat dashboards report events: passes, shots, possession.
 
 ![Evidence Ledger](docs/images/evidence-ledger.png)
 
+![Season page built from the gold layer](docs/images/season.png)
+
 ## Try it in 60 seconds
 
 1. Open the live app and click **See the Ghost Pass**.
@@ -38,6 +40,7 @@ Broadcast graphics and stat dashboards report events: passes, shots, possession.
 4. Click **Why do we say this?** to open the Evidence Ledger.
 5. Click **Tour** at the top for a five-step guided walkthrough.
 6. Go back and choose **Watch a full match** for a 90-minute replay with a timeline of key moments.
+7. Scroll down to **Season so far**: standings, results and team averages built by the Fabric pipeline from the gold tables.
 
 ## Architecture
 
@@ -48,11 +51,12 @@ flowchart LR
   es --> lh["Lakehouse<br/>bronze_events (Delta)"]
   lh --> pl["Data Factory pipeline<br/>notebook: silver + gold"]
   pl --> gold["Gold tables<br/>match, team, player stats"]
+  gold -- "season.json" --> blob
   eh --> api["FastAPI on<br/>Azure Container Apps"]
   api --> twin["Tactical Twin<br/>Ghost Pass scoring"]
   twin --> wf["Agent Framework workflow<br/>on Microsoft Foundry"]
   wf --> api
-  api --> blob["Blob Storage<br/>replay bundles"]
+  blob["Blob Storage<br/>replays + season.json"] --> api
   api --> web["React app<br/>pitch, Ghost Pass, Evidence Ledger"]
 ```
 
@@ -88,7 +92,7 @@ Live mode also has a **Sim outage** switch: the next overlay falls back to the t
 | Concern | How |
 | --- | --- |
 | Event-driven ingestion | Fabric Eventstream custom endpoints → Eventhouse and Lakehouse |
-| Batch layer | Fabric Data Factory pipeline runs a Spark notebook: bronze → silver (validated, deduplicated) → gold match, team and player tables, with a data-quality row per run ([details](fabric/lakehouse/README.md)) |
+| Batch layer | Fabric Data Factory pipeline runs a Spark notebook: bronze → silver (validated, deduplicated) → gold match, team and player tables, with a data-quality row per run; it also exports `season.json` to Blob for the app's Season page ([details](fabric/lakehouse/README.md)) |
 | Compute | Azure Container Apps (FastAPI serves the API and the built React app from one image) |
 | Identity | User-assigned managed identity `id-whatif-api` for Blob, Foundry and Fabric; no keys in the app |
 | CI/CD | GitHub Actions: lint and tests → image to GHCR → deploy with OIDC federated credentials (no stored Azure secret) |
@@ -154,6 +158,7 @@ Azure and Fabric settings go in `.env` (copy `.env.example`; never commit `.env`
 | `GET /api/live/matches` | Matches currently streaming into Fabric |
 | `POST /api/live/{match_id}/watch` | Start the watcher for a match |
 | `GET /api/live/{match_id}/state`, `/overlays` | Live clock, stats and checked overlays |
+| `GET /api/season` | Season standings, results and team averages from the gold layer (404 until the pipeline has run) |
 
 ## Repository layout
 
@@ -172,7 +177,7 @@ Azure and Fabric settings go in `.env` (copy `.env.example`; never commit `.env`
 
 ## Testing
 
-416 Python tests (Twin scenarios, validator rules, KQL parity, agent workflow, live watcher, API) plus frontend tests run on every push.
+422 Python tests (Twin scenarios, validator rules, KQL parity, agent workflow, live watcher, API) plus frontend tests run on every push.
 
 ## License
 
