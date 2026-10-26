@@ -21,8 +21,8 @@ Broadcast graphics and stat dashboards report events: passes, shots, possession.
 2. **KQL** in Eventhouse computes live stats, momentum and pressure, and detects key moments.
 3. The **Tactical Twin** (deterministic Python) scores every passing option from the frozen frame and picks the Ghost Pass.
 4. Two **Microsoft Agent Framework** agents on **Microsoft Foundry** turn the evidence into text:
-   - the **Investigator** reads the evidence packet and writes the analyst finding;
-   - the **Broadcast Director** writes the fan headline and a commentary cue.
+   - the **Investigator** reads the evidence packet and checks the facts in Fabric with read-only KQL tools (match stats, recent events, momentum, pressure);
+   - the **Broadcast Director** writes both versions from those facts: the analyst finding, and the fan headline with a commentary cue.
 5. A deterministic **validator** checks every number, name and event ID against the evidence. If a check fails, the agent gets one retry; after that, a template takes over. The screen never shows an unchecked claim.
 6. The **React** app animates the actual pass and the Ghost Pass on a pitch, with Analyst, Fan and Compare views and an **Evidence Ledger** ("Why do we say this?").
 
