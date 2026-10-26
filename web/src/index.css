@@ -1717,7 +1717,24 @@ body {
 @media (max-width: 520px) {
   .team-tiles-grid { grid-template-columns: 1fr; }
   .col-gf, .col-ga { display: none; }
-  .season-standings-wrap { overflow-x: hidden; }
+
+  .season-standings {
+    table-layout: fixed;
+  }
+
+  .season-standings .col-team {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .season-standings th:not(.col-team),
+  .season-standings td:not(.col-team) {
+    width: 34px;
+    padding: 6px 4px;
+    font-size: 0.8125rem;
+  }
 }
 
 .team-tile {

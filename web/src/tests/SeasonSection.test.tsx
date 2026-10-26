@@ -231,6 +231,16 @@ describe('SeasonSection', () => {
     expect(screen.getByText(/3 for a win, 1 for a draw/)).toBeTruthy()
   })
 
+  it('renders Pts column header in standings', async () => {
+    mockGetSeason.mockResolvedValue(makeSeason())
+    render(<SeasonSection entries={[]} onSelect={vi.fn()} />)
+    await waitFor(() => screen.getByText('Standings'))
+
+    const ptsHeader = screen.getByRole('columnheader', { name: /^pts$/i })
+    expect(ptsHeader).toBeTruthy()
+    expect(ptsHeader.getAttribute('title')).toBe('Points')
+  })
+
   it('renders results newest-first (highest seed first)', async () => {
     mockGetSeason.mockResolvedValue(makeSeason())
     render(<SeasonSection entries={[]} onSelect={vi.fn()} />)
