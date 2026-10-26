@@ -124,7 +124,7 @@ function MatchResultCard({
       {homeStats && awayStats && (
         <div className="comp-bars">
           <CompBar
-            label="Possession %"
+            label="Possession (event share)"
             homeVal={homeStats.possession_proxy_pct}
             awayVal={awayStats.possession_proxy_pct}
             homeColor={homeColor}
@@ -181,7 +181,7 @@ function TeamCompTiles({ teamTotals }: { teamTotals: SeasonTeamTotal[] }) {
             <p className="team-tile-name">{t.team_name ?? t.team_id}</p>
             <dl className="team-tile-stats">
               <div>
-                <dt>Poss</dt>
+                <dt>Poss (events)</dt>
                 <dd>{t.avg_possession_pct.toFixed(1)}%</dd>
               </div>
               <div>

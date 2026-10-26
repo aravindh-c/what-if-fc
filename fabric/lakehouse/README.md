@@ -52,6 +52,22 @@ SELECT TOP 5 * FROM gold.pipeline_runs ORDER BY processed_at DESC;
 
 Then, in the Eventhouse, run `MatchStats("match_s7_T01_T02")`. The passes, completed passes, completion %, shots, goals and possession proxy % must be equal to `gold.match_team_stats` for that match.
 
+## Result of the first pipeline run (25 Oct 2026)
+
+Six matches (seeds 7 to 12) had been streamed into bronze, most of them twice during testing.
+
+| bronze_rows | rejected_rows | duplicate_rows | silver_rows |
+| --- | --- | --- | --- |
+| 25,414 | 0 | 12,711 | 12,703 |
+
+12,703 is exactly the number of events the simulator produced for those six matches, so every duplicate was removed and no event was lost. The scores and team stats in gold equal the simulator and KQL `MatchStats()` output.
+
+![Pipeline run succeeded](../../docs/images/pipeline-run.png)
+
+![Data-quality row per run](../../docs/images/pipeline-runs-dq.png)
+
+![Gold match summary and team stats](../../docs/images/gold-tables.png)
+
 ## Notes
 
 - Run the pipeline after a match has finished streaming. F2 fits one Spark session at a time, and the Eventstream needs room to write to the Lakehouse.
